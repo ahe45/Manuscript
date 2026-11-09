@@ -69,7 +69,7 @@ ExamCheck Windows 설치본은 Inno Setup으로 사용자별 EXE를 설치합니
 | DB | 기존 또는 배포 환경의 MariaDB | 설치본에 동봉한 전용 MariaDB, 첫 실행 초기화, 루프백 전용 포트 |
 | 데이터 | 서버의 DB와 운영 백업 | `%LOCALAPPDATA%\Manuscript\data`에 저장하고 업데이트와 제거 후 유지 |
 | 접근 | 관리자 권한을 별도 인증으로 검증하고, 수험생별 접속 코드 등 추가 인증 적용 | 기본은 설치한 PC에서만 사용. 오프라인 내부망 공유는 선택 기능으로 별도 검증 |
-| PDF | 서버의 지정된 Chromium으로 생성하고 동시 요청을 제한된 대기열로 처리 | PC에 설치된 Google Chrome으로 인터넷 연결 없이 생성 |
+| PDF | 서버에 설치된 Google Chrome으로 생성하고 동시 요청을 제한된 대기열로 처리 | PC에 설치된 Google Chrome으로 인터넷 연결 없이 생성 |
 
 ### 공통 리팩토링
 

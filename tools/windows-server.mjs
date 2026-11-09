@@ -47,14 +47,7 @@ try {
   const action = process.argv[2];
   if (action !== 'check' && action !== 'prepare') throw new Error('지원하지 않는 Windows 서버 작업입니다.');
   await checkServer(process.env);
-  if (action === 'prepare') {
-    prepareDependencies();
-    const channel = process.env.PDF_BROWSER_CHANNEL ?? (process.env.APP_PROFILE === 'web' ? '' : 'chrome');
-    if (!channel) {
-      run(process.execPath, ['node_modules/playwright-core/cli.js', 'install', 'chromium', '--only-shell'],
-        'PDF용 Chromium을 설치하지 못했습니다. 네트워크 연결을 확인하세요.');
-    }
-  }
+  if (action === 'prepare') prepareDependencies();
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

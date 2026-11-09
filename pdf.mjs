@@ -19,8 +19,7 @@ const assets = new Map([
 
 async function withPdfRenderer(signal, task) {
   signal?.throwIfAborted();
-  const channel = process.env.PDF_BROWSER_CHANNEL ?? (process.env.APP_PROFILE === 'web' ? '' : 'chrome');
-  const browser = await chromium.launch({ channel: channel || undefined, timeout: 15000 });
+  const browser = await chromium.launch({ channel: 'chrome', timeout: 15000 });
   const abort = () => { void browser.close().catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
   try {

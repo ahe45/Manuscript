@@ -158,7 +158,7 @@ async function checkWebProfile() {
       ...process.env, APP_PROFILE: 'web', PUBLIC_ORIGIN: url, PORT: String(backendPort),
       ADMIN_PASSWORD_HASH: await hashAdminPassword(adminPassword), CANDIDATE_ACCESS_SECRET: candidateSecret,
       DB_HOST: '127.0.0.1', DB_PORT: String(settings.dbPort), DB_NAME: 'Manuscript',
-      DB_USER: 'manuscript_app', DB_PASSWORD: settings.appPassword, PDF_BROWSER_CHANNEL: 'chrome',
+      DB_USER: 'manuscript_app', DB_PASSWORD: settings.appPassword,
     },
   });
   const context = await browser.newContext({ ignoreHTTPSErrors: true, acceptDownloads: true });

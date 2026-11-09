@@ -269,7 +269,6 @@ async function startApp(port) {
       ...process.env, APP_PROFILE: 'offline', PORT: String(port),
       DB_HOST: '127.0.0.1', DB_PORT: String(settings.dbPort), DB_NAME: 'Manuscript',
       DB_USER: 'manuscript_app', DB_PASSWORD: settings.appPassword,
-      PDF_BROWSER_CHANNEL: 'chrome',
     },
   });
   child.stdout.on('data', writeLog);
