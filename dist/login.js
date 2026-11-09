@@ -1,7 +1,6 @@
 const form = document.querySelector('#login-form');
 const fields = document.querySelector('#login-fields');
-const { number, name, year, month, day, accessCode } = form.elements;
-const accessCodeFields = document.querySelector('#access-code-fields');
+const { number, name, year, month, day } = form.elements;
 const status = document.querySelector('#login-status');
 const numberHint = document.querySelector('#candidate-number-hint');
 let requiredDigits = null;
@@ -16,8 +15,7 @@ async function loadNumberRule() {
   try {
     const response = await fetch('/api/settings');
     if (!response.ok) return;
-    const { candidateNumberDigits, requiresAccessCode } = await response.json();
-    accessCodeFields.hidden = accessCodeFields.disabled = !requiresAccessCode;
+    const { candidateNumberDigits } = await response.json();
     const hasRule = Number.isInteger(candidateNumberDigits);
     requiredDigits = hasRule ? candidateNumberDigits : null;
     number.inputMode = hasRule ? 'numeric' : 'text';
@@ -70,7 +68,7 @@ form.addEventListener('submit', async event => {
     const response = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ number: number.value, name: name.value, birthDate, accessCode: accessCode.value }),
+      body: JSON.stringify({ number: number.value, name: name.value, birthDate }),
     });
     if (response.ok) {
       window.location.replace('/manuscript');

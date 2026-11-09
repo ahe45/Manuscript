@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { adminPasswordRange, hashAdminPassword, readWebAccess, validNewAdminPassword } from '../access.mjs';
@@ -6,7 +5,6 @@ import { createSetupPrompt } from './windows-prompt.mjs';
 
 const envPath = '.env';
 const validHash = value => /^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(value ?? '');
-const validSecret = value => (value?.length ?? 0) >= 32;
 const validPort = value => /^\d+$/.test(value ?? '') && Number(value) >= 1 && Number(value) <= 65535;
 
 function envLine(key, value) {
@@ -84,7 +82,6 @@ async function configure() {
   if (env.PUBLIC_ORIGIN?.replace(/\/$/, '') === 'https://manuscript.example.org') set('PUBLIC_ORIGIN', '');
 
   await promptForSettings(env, set);
-  if (!validSecret(env.CANDIDATE_ACCESS_SECRET)) set('CANDIDATE_ACCESS_SECRET', randomBytes(32).toString('base64url'));
   readWebAccess(env);
   if (!changes.size) return;
 

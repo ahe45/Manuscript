@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { unzipSync, zipSync } from 'fflate';
 import { PDFDocument } from 'pdf-lib';
-import { hashAdminPassword, issueCandidateCode } from '../access.mjs';
+import { hashAdminPassword } from '../access.mjs';
 
 const exec = promisify(execFile);
 const fixtureRoot = resolve(process.env.LOCALAPPDATA, 'Manuscript-Test');
@@ -151,12 +151,11 @@ async function checkWebProfile() {
   });
   const url = 'https://127.0.0.1:' + await listen(proxy);
   const adminPassword = 'fixture-admin-pass';
-  const candidateSecret = randomBytes(32).toString('hex');
   web = launch(join(install, 'runtime/node/node.exe'), ['server.mjs'], {
     cwd: install,
     env: {
       ...process.env, APP_PROFILE: 'web', PUBLIC_ORIGIN: url, PORT: String(backendPort),
-      ADMIN_PASSWORD_HASH: await hashAdminPassword(adminPassword), CANDIDATE_ACCESS_SECRET: candidateSecret,
+      ADMIN_PASSWORD_HASH: await hashAdminPassword(adminPassword),
       DB_HOST: '127.0.0.1', DB_PORT: String(settings.dbPort), DB_NAME: 'Manuscript',
       DB_USER: 'manuscript_app', DB_PASSWORD: settings.appPassword,
     },
@@ -174,7 +173,9 @@ async function checkWebProfile() {
     assert.equal((await context.request.put(url + '/api/settings', { headers: { Origin: url }, data: config })).status(), 403);
     assert.equal((await context.request.get(url + '/api/admin/answers')).status(), 403);
     assert.equal((await context.request.get(url + '/api/admin/answers/export')).status(), 403);
-    assert.equal((await context.request.post(url + '/api/login', { headers: { Origin: url }, data: loginBody })).status(), 401);
+    assert.equal((await context.request.post(url + '/api/login', {
+      headers: { Origin: url }, data: { ...loginBody, birthDate: '2000-02-31' },
+    })).status(), 400);
     const adminPage = await context.newPage();
     assert.equal((await context.request.get(url + '/admin')).status(), 404);
     await adminPage.goto(url + '/login');
@@ -201,7 +202,7 @@ async function checkWebProfile() {
     await adminPage.waitForURL('**/setting');
     assert.ok((await context.cookies()).find(cookie => cookie.name === 'manuscript_admin')?.secure);
     assert.equal((await context.request.put(url + '/api/settings', { headers: { Origin: url }, data: config })).status(), 200);
-    const page = await openDraft(context, url, { ...loginBody, accessCode: issueCandidateCode(candidateSecret, identity) });
+    const page = await openDraft(context, url);
     assert.equal(await page.locator('#source').inputValue(), savedBody);
     assert.ok((await context.cookies()).find(cookie => cookie.name === 'manuscript_session')?.secure);
     assert.equal((await context.request.put(url + '/api/settings', { headers: { Origin: 'https://other.invalid' }, data: config })).status(), 403);
@@ -209,7 +210,7 @@ async function checkWebProfile() {
     const another = await browser.newContext({ ignoreHTTPSErrors: true });
     try {
       const other = { ...identity, number: '0421' };
-      await openDraft(another, url, { ...other, accessCode: issueCandidateCode(candidateSecret, other) });
+      await openDraft(another, url, other);
       const first = await (await context.request.get(url + '/api/draft')).json();
       const second = await (await another.request.get(url + '/api/draft')).json();
       assert.equal(second.body, '');
@@ -225,7 +226,7 @@ async function checkWebProfile() {
     await page.getByRole('button', { name: '로그아웃', exact: true }).click();
     await page.waitForURL('**/login');
     assert.equal((await context.request.get(url + '/api/draft')).status(), 401);
-    console.log('HTTPS proxy, admin authorization, candidate code, and web downloads passed');
+    console.log('HTTPS proxy, admin authorization, candidate login, and web downloads passed');
   } finally {
     await context.close();
     if (web.child.exitCode === null) web.child.kill();

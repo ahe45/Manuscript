@@ -2,20 +2,19 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
-  candidateDetails, checkCandidateCode, checkAdminPassword, createLoginThrottle, hashAdminPassword,
-  issueCandidateCode, readWebAccess, webRequestOrigin,
+  candidateDetails, checkAdminPassword, createLoginThrottle, hashAdminPassword, readWebAccess, webRequestOrigin,
 } from './access.mjs';
 import { createPdfQueue } from './pdf-queue.mjs';
 import { layout, visibleCellCount, withinCellLimit } from './dist/layout.js';
 
-test('web profile requires HTTPS and dedicated credentials', async () => {
+test('web profile requires HTTPS and administrator credentials', async () => {
   assert.equal(readWebAccess({}), null);
   const hash = await hashAdminPassword('fixture password');
   assert.equal(await checkAdminPassword(hash, 'fixture password'), true);
   assert.equal(await checkAdminPassword(hash, 'wrong password'), false);
   const env = {
     APP_PROFILE: 'web', PUBLIC_ORIGIN: 'https://example.test',
-    ADMIN_PASSWORD_HASH: hash, CANDIDATE_ACCESS_SECRET: 'x'.repeat(32),
+    ADMIN_PASSWORD_HASH: hash,
   };
   assert.equal(readWebAccess(env).host, 'example.test');
   assert.throws(() => readWebAccess({ ...env, PUBLIC_ORIGIN: 'http://example.test' }));
@@ -35,7 +34,6 @@ test('new administrator passwords accept 4 to 20 characters', async () => {
 test('web profile can use the HTTPS proxy host without a configured public origin', () => {
   const env = {
     APP_PROFILE: 'web', ADMIN_PASSWORD_HASH: '0'.repeat(32) + ':' + '1'.repeat(64),
-    CANDIDATE_ACCESS_SECRET: 'x'.repeat(32),
   };
   const access = readWebAccess(env);
   const headers = { host: 'Manuscript.example.test:443', 'x-forwarded-proto': 'https' };
@@ -47,13 +45,9 @@ test('web profile can use the HTTPS proxy host without a configured public origi
   assert.equal(webRequestOrigin(readWebAccess({ ...env, PUBLIC_ORIGIN: 'https://only.example.test' }), headers), undefined);
 });
 
-test('candidate code is bound to normalized candidate identity', () => {
-  const secret = 'x'.repeat(32);
+test('candidate login normalizes and validates candidate identity', () => {
   const candidate = candidateDetails({ number: ' 0001 ', name: ' 한글 ', birthDate: '2000-01-01' });
-  const code = issueCandidateCode(secret, candidate);
-  assert.equal(checkCandidateCode(secret, candidate, code.toLowerCase()), true);
-  assert.equal(checkCandidateCode(secret, { ...candidate, number: '0002' }, code), false);
-  assert.equal(checkCandidateCode(secret, candidate, ''), false);
+  assert.deepEqual(candidate, { number: '0001', name: '한글', birthDate: '2000-01-01' });
   assert.equal(candidateDetails({ ...candidate, birthDate: '2000-02-31' }), undefined);
 });
 

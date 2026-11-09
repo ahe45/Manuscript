@@ -11,7 +11,7 @@ import { createPdfDownload, writeCandidatePdfArchive } from './pdf.mjs';
 import { layout, withinCellLimit } from './dist/layout.js';
 import { koreanFontAsset } from './fonts.mjs';
 import { createPdfQueue, PdfQueueError } from './pdf-queue.mjs';
-import { candidateDetails, checkCandidateCode, checkAdminPassword, createLoginThrottle, readWebAccess, webRequestOrigin } from './access.mjs';
+import { candidateDetails, checkAdminPassword, createLoginThrottle, readWebAccess, webRequestOrigin } from './access.mjs';
 
 const port = Number(process.env.PORT ?? 4174);
 const profile = process.env.APP_PROFILE ?? 'local';
@@ -221,18 +221,15 @@ async function login(request, response) {
     json(response, 429, { error: '잠시 후 로그인을 다시 시도해 주세요.' });
     return;
   }
-  if (webAccess && (!candidate || !checkCandidateCode(webAccess.candidateSecret, candidate, value?.accessCode))) {
-    loginThrottle.fail(key);
-    json(response, 401, { error: '수험생 정보와 접속 코드를 확인해 주세요.' });
-    return;
-  }
   if (!candidate) {
+    if (webAccess) loginThrottle.fail(key);
     json(response, 400, { error: '수험번호, 이름, 생년월일을 올바르게 입력해 주세요.' });
     return;
   }
   const { candidateNumberDigits } = await loadEditor();
   if (candidateNumberDigits !== null &&
       (candidate.number.length !== candidateNumberDigits || !/^[0-9]+$/.test(candidate.number))) {
+    if (webAccess) loginThrottle.fail(key);
     json(response, 400, { error: `수험번호는 숫자 ${candidateNumberDigits}자리로 입력해 주세요.` });
     return;
   }
@@ -629,7 +626,6 @@ async function handleApi(request, response, path, local) {
     json(response, 200, editor ?? {
       ...await loadEditor(),
       canEditSettings: isAdmin(request, local),
-      requiresAccessCode: Boolean(webAccess),
     });
   } else if (request.method === 'PUT') {
     if (session) await saveDraft(request, response, session, editor);

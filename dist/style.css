@@ -407,7 +407,6 @@ footer { margin-top: 14px; }
 #login-form { padding: 24px; }
 #login-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 #login-fields > label, .birth-fields legend { display: block; margin-bottom: 8px; font-weight: 700; }
-#access-code-fields label { display: block; margin-top: 16px; margin-bottom: 8px; font-weight: 700; }
 #login-form input, #login-form select {
   width: 100%;
   padding: 10px;

@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const deriveKey = promisify(scrypt);
@@ -10,8 +10,7 @@ export function readWebAccess(env) {
     throw new Error('PUBLIC_ORIGIN에는 HTTPS 주소만 설정하세요.');
   }
   if (!/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(env.ADMIN_PASSWORD_HASH ?? '')) throw new Error('ADMIN_PASSWORD_HASH를 설정하세요.');
-  if ((env.CANDIDATE_ACCESS_SECRET ?? '').length < 32) throw new Error('CANDIDATE_ACCESS_SECRET을 32자 이상으로 설정하세요.');
-  return { origin: url?.origin, host: url?.host, adminHash: env.ADMIN_PASSWORD_HASH, candidateSecret: env.CANDIDATE_ACCESS_SECRET };
+  return { origin: url?.origin, host: url?.host, adminHash: env.ADMIN_PASSWORD_HASH };
 }
 
 export function webRequestOrigin(access, headers) {
@@ -36,15 +35,6 @@ export function candidateDetails(value) {
   if (year < 1900 || date > new Date() || date.getFullYear() !== year ||
       date.getMonth() !== month - 1 || date.getDate() !== day) return;
   return { number, name, birthDate };
-}
-
-export function issueCandidateCode(secret, candidate) {
-  return createHmac('sha256', secret).update(JSON.stringify(candidate)).digest('hex').slice(0, 12).toUpperCase();
-}
-
-export function checkCandidateCode(secret, candidate, input) {
-  if (typeof input !== 'string' || !/^[a-f0-9]{12}$/i.test(input.trim())) return false;
-  return timingSafeEqual(Buffer.from(issueCandidateCode(secret, candidate)), Buffer.from(input.trim().toUpperCase()));
 }
 
 const minAdminPasswordLength = 4;
