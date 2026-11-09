@@ -1,0 +1,16 @@
+[Unit]
+Description=Manuscript web application
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+User=manuscript
+Group=manuscript
+WorkingDirectory=/opt/manuscript
+EnvironmentFile=/etc/manuscript/manuscript.env
+ExecStart=/usr/bin/node /opt/manuscript/server.mjs
+Restart=on-failure
+TimeoutStopSec=110
+
+[Install]
+WantedBy=multi-user.target

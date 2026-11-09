@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>답안지 다운로드</title>
+  <link rel="icon" href="/manuscript.ico">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="answer-downloads">
+    <header class="masthead masthead-with-back">
+      <a class="masthead-back" href="/admin-home" aria-label="관리자 메뉴">
+        <svg aria-hidden="true" viewBox="3 3 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 19-7-7 7-7m-7 7h14"/>
+        </svg>
+      </a>
+      <h1>답안지 다운로드</h1>
+    </header>
+    <section class="workspace answer-panel" aria-label="저장된 수험생 답안">
+      <div class="answer-actions">
+        <form action="/admin-logout" method="post">
+          <button class="toolbar-button toolbar-button-gray" type="submit">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>
+            </svg>
+            처음으로
+          </button>
+        </form>
+        <div class="download-control">
+          <button id="all-answers" class="toolbar-button toolbar-button-blue download-button" type="button" aria-expanded="false" aria-controls="all-answer-options" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12m-5-5 5 5 5-5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+            </svg>
+            전체 답안지 다운로드
+          </button>
+          <div id="all-answer-options" class="download-options" role="group" aria-label="전체 답안지 다운로드 방식" hidden>
+            <button class="toolbar-button" type="button" data-mode="individual">전체(개별)</button>
+            <button class="toolbar-button" type="button" data-mode="merged">전체(병합)</button>
+          </div>
+        </div>
+      </div>
+      <p id="answer-status" role="status">수험생 목록을 불러오는 중…</p>
+      <div class="answer-table-wrapper" hidden>
+        <table class="answer-table" aria-label="수험생 목록">
+          <thead>
+            <tr><th scope="col">수험번호</th><th scope="col">이름</th><th scope="col">생년월일</th><th scope="col">답안지</th></tr>
+          </thead>
+          <tbody id="answer-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <template id="answer-download-menu">
+    <div class="download-control">
+      <button class="toolbar-button download-button" type="button" aria-expanded="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v12m-5-5 5 5 5-5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+        </svg>
+        다운로드
+      </button>
+      <div class="download-options" role="group" aria-label="다운로드 범위" hidden>
+        <button class="toolbar-button" type="button" data-mode="individual">전체(개별)</button>
+        <button class="toolbar-button" type="button" data-mode="merged">전체(병합)</button>
+      </div>
+    </div>
+  </template>
+  <script type="module" src="/answer-downloads.js"></script>
+</body>
+</html>

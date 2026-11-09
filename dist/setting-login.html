@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>관리자 비밀번호</title>
+  <link rel="icon" href="/manuscript.ico">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="login">
+    <header class="masthead"><h1>관리자 비밀번호</h1></header>
+    <form id="login-form" class="workspace" action="/api/admin/login" method="post">
+      <fieldset id="login-fields">
+        <label for="admin-password">비밀번호</label>
+        <input id="admin-password" name="password" type="password" maxlength="256" autocomplete="current-password" required autofocus>
+        <div class="login-actions">
+          <button class="toolbar-button toolbar-button-blue" type="submit">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m10 17 5-5-5-5m5 5H3m9-8h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+            </svg>
+            관리자 진입
+          </button>
+          <a class="toolbar-button toolbar-button-gray" href="/login">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7m-7 7h14"/>
+            </svg>
+            뒤로
+          </a>
+        </div>
+      </fieldset>
+      <p id="login-status" role="status"></p>
+    </form>
+  </main>
+  <script type="module" src="/setting-login.js"></script>
+</body>
+</html>

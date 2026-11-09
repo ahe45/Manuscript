@@ -1,4 +1,7 @@
-import { layout, COLUMNS, ROWS, CELL_BREAK } from './layout.js';
+import { cellGlyphs, createGridCell, fitGlyphs } from './glyphs.js';
+import { renderPrintSheet } from './print.js';
+import { bindDownloadMenus } from './download-menu.js';
+import { layout, COLUMNS, CELL_BREAK, withinCellLimit, visibleCellCount } from './layout.js';
 
 const source = document.querySelector('#source');
 const area = document.querySelector('#writing-area');
@@ -13,10 +16,11 @@ const questionNavigation = document.querySelector('#question-navigation');
 const previousQuestion = document.querySelector('#previous-question');
 const nextQuestion = document.querySelector('#next-question');
 const questionPosition = document.querySelector('#question-position');
+const logoutForm = document.querySelector('#logout-form');
+const logoutButton = logoutForm.querySelector('button');
 const draftUrl = '/api/draft' + location.search;
 const candidateDetails = document.querySelector('#candidate-details');
 const downloadButton = document.querySelector('#download-button');
-const downloadOptions = document.querySelector('#download-options');
 const downloadStatus = document.querySelector('#download-status');
 let downloadStatusTimer;
 const printSheet = document.querySelector('#print-sheet');
@@ -39,7 +43,6 @@ const minimumZoom = 50;
 const maximumZoom = 300;
 const zoomStep = 25;
 let zoom = 100;
-const segmenter = new Intl.Segmenter('ko', { granularity: 'grapheme' });
 let columns = COLUMNS;
 let maxCells = null;
 let separateAt = null;
@@ -53,13 +56,14 @@ let saveTimer;
 let saveAfter = null;
 let saveConflict = false;
 let saveTask;
-let changingQuestion = false;
+let checkingDraft = false;
 let question = 1;
 let editSelection = [0, 0, 'none'];
 let compositionSelection = editSelection;
 let limitSelection;
 
 let model;
+let printSettings;
 let renderedCells = [];
 let offsetsByRow = [];
 let painted = new Set();
@@ -67,93 +71,16 @@ const glyphsToFit = new Set();
 let glyphFitFrame = null;
 let composingFrom = null;
 let composingText = '';
+let composingDraft = null;
 let dragAnchor = null;
 let preferredColumn = null;
 let lastPointerType = 'mouse';
 
-function addPrintPage() {
-  const page = document.createElement('div');
-  page.className = 'print-page';
-  const content = document.createElement('div');
-  content.className = 'print-content';
-  page.append(content);
-  printSheet.append(page);
-  return content;
-}
-
 function preparePrint() {
-  if (!renderedCells.length) return;
-  printSheet.replaceChildren();
-  printSheet.style.setProperty('--columns', columns);
-  const firstPage = addPrintPage();
-  const heading = document.createElement('header');
-  heading.className = 'print-heading';
-  const headingTitle = document.createElement('div');
-  headingTitle.className = 'print-heading-title';
-  const title = document.createElement('h1');
-  title.textContent = editorTitle.textContent;
-  const subtitle = document.createElement('p');
-  subtitle.className = 'print-question';
-  subtitle.textContent = questionTitle.textContent;
-  headingTitle.append(title, subtitle);
-  const candidate = candidateDetails.cloneNode(true);
-  candidate.removeAttribute('id');
-  heading.append(headingTitle, candidate);
-  const rows = [];
-  for (let start = 0; start < renderedCells.length; start += columns) {
-    const row = document.createElement('div');
-    row.className = 'grid print-row';
-    for (const cell of renderedCells.slice(start, start + columns)) {
-      const copy = cell.cloneNode(true);
-      copy.classList.remove('caret', 'selected', 'composing');
-      row.append(copy);
-    }
-    rows.push(row);
-  }
-  firstPage.append(heading, ...rows);
-
-  printSheet.classList.add('print-measuring');
-  try {
-    const pageHeight = firstPage.clientHeight;
-    const headingHeight = heading.getBoundingClientRect().height + parseFloat(getComputedStyle(heading).marginBottom);
-    const rowHeight = rows[0].getBoundingClientRect().height + parseFloat(getComputedStyle(rows[0]).marginBottom);
-    let page = firstPage;
-    let remaining = pageHeight - headingHeight;
-    for (const row of rows) {
-      if (rowHeight > remaining) {
-        page = addPrintPage();
-        remaining = pageHeight;
-      }
-      if (page !== firstPage) page.append(row);
-      remaining -= rowHeight;
-    }
-    fitGlyphs(printSheet.querySelectorAll('.fit-glyphs'));
-  } finally {
-    printSheet.classList.remove('print-measuring');
-  }
+  if (model && printSettings) renderPrintSheet(printSheet, printSettings, model);
 }
 
-function toggleDownloadOptions(open) {
-  downloadOptions.hidden = !open;
-  downloadButton.setAttribute('aria-expanded', String(open));
-}
-
-downloadButton.addEventListener('click', () => toggleDownloadOptions(downloadOptions.hidden));
-document.addEventListener('click', event => {
-  if (!downloadOptions.hidden && !downloadButton.parentElement.contains(event.target)) toggleDownloadOptions(false);
-});
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !downloadOptions.hidden) {
-    toggleDownloadOptions(false);
-    downloadButton.focus();
-  }
-});
-downloadOptions.addEventListener('click', event => {
-  const option = event.target.closest('button[data-mode]');
-  if (!option) return;
-  toggleDownloadOptions(false);
-  void downloadPdf(option.dataset.mode);
-});
+bindDownloadMenus(downloadButton.parentElement, downloadPdf, () => !checkingDraft);
 
 function showDownloadStatus(message, state) {
   clearTimeout(downloadStatusTimer);
@@ -167,18 +94,24 @@ function showDownloadStatus(message, state) {
 }
 
 async function downloadPdf(mode) {
-  if (maxCells !== null && model.usedCells > maxCells) {
+  if (checkingDraft || downloadButton.disabled) return;
+  if (!withinCellLimit(model, maxCells)) {
     showDownloadStatus('최대 사용 칸 수를 초과했습니다. 원고를 줄인 뒤 다운로드해 주세요.', 'error');
     return;
   }
   downloadButton.disabled = true;
   const fileType = mode === 'individual' ? 'ZIP' : 'PDF';
-  showDownloadStatus(fileType + ' 생성 중…', 'pending');
+  showDownloadStatus('원고 저장 확인 중…', 'pending');
   try {
+    if (!await confirmDraftSaved()) {
+      showDownloadStatus('원고를 저장하지 못해 다운로드를 시작할 수 없습니다. 저장 상태를 확인해 주세요.', 'error');
+      return;
+    }
+    showDownloadStatus(fileType + ' 생성 중…', 'pending');
     const response = await fetch('/api/pdf' + location.search, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Editor-Session': editorToken },
-      body: JSON.stringify({ body: acceptedText, mode }),
+      body: JSON.stringify({ body: savedText, mode }),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -270,7 +203,7 @@ function canInsert(text) {
 function acceptsEdit(text, candidate, previousSelection) {
   if (maxCells === null) return true;
   // A stored draft can already exceed the limit. Let the user edit it without growing it.
-  if (candidate.usedCells > Math.max(maxCells, acceptedLayout.usedCells)) return false;
+  if (!withinCellLimit(candidate, Math.max(maxCells, acceptedLayout.usedCells))) return false;
   const addedLength = text.length - acceptedText.length;
   if (addedLength <= 0 || !isFinalCellInsertion(previousSelection)) return true;
   const [start] = previousSelection;
@@ -282,19 +215,23 @@ function warnUnsaved(event) {
   event.returnValue = true;
 }
 
+function draftBody() {
+  return composingDraft ?? acceptedText;
+}
+
 function updateUnloadWarning() {
-  if (acceptedText !== savedText || saving) window.addEventListener('beforeunload', warnUnsaved);
+  if (draftBody() !== savedText || saving) window.addEventListener('beforeunload', warnUnsaved);
   else window.removeEventListener('beforeunload', warnUnsaved);
 }
 
 function queueDraftSave() {
   clearTimeout(saveTimer);
-  if (saving || composingFrom !== null || saveConflict || changingQuestion || saveAfter === null) return;
+  if (saving || saveConflict || checkingDraft || saveAfter === null) return;
   saveTimer = setTimeout(saveDraft, Math.max(0, Math.ceil(saveAfter - performance.now())));
 }
 
 function updateDraftStatus() {
-  const saved = revision > 0 && acceptedText === savedText;
+  const saved = revision > 0 && draftBody() === savedText;
   setDraftStatus(saved ? 'saved' : 'writing', saved ? '저장됨' : '작성중');
 }
 
@@ -303,43 +240,39 @@ function setDraftStatus(state, message) {
   draftStatus.textContent = message;
 }
 
-function saveTimeKey() {
-  // Scope the tab's time to the login without storing the editor token.
-  let scope = 0;
-  for (const character of editorToken ?? '') {
-    scope = (Math.imul(scope, 31) + character.charCodeAt(0)) >>> 0;
-  }
-  return `manuscript.saved-time.${scope}.${question}`;
-}
-
 function displaySaveTime(time) {
   lastSaved.textContent = '최종 저장 ' + (Number.isFinite(time) && time > 0 ? saveTimeFormat.format(time) : '—');
   lastSaved.hidden = false;
 }
 
-function acceptInput(previousSelection) {
+function scheduleDraftSave() {
+  if (!saving && !saveConflict) updateDraftStatus();
+  saveAfter = performance.now() + saveDelay;
+  updateUnloadWarning();
+  queueDraftSave();
+}
+
+function separatorForEdit(text, previousSelection) {
   const [start] = previousSelection;
-  const addedLength = source.value.length - acceptedText.length;
-  if (addedLength > 0 && separatorFor(source.value.slice(start, start + addedLength), previousSelection)) {
-    source.setRangeText(CELL_BREAK, start, start, 'preserve');
-  }
+  const addedLength = text.length - acceptedText.length;
+  return addedLength > 0 ? separatorFor(text.slice(start, start + addedLength), previousSelection) : '';
+}
+
+function acceptInput(previousSelection, previousBody = acceptedText) {
+  const [start] = previousSelection;
+  const separator = separatorForEdit(source.value, previousSelection);
+  if (separator) source.setRangeText(separator, start, start, 'preserve');
   const candidate = layoutDraft(source.value);
   if (!acceptsEdit(source.value, candidate, previousSelection)) {
     source.value = acceptedText;
     source.setSelectionRange(...previousSelection);
     showLimit();
-    return acceptedLayout;
+  } else {
+    if (acceptedText !== source.value) separateAt = null;
+    acceptedText = source.value;
+    acceptedLayout = candidate;
   }
-  const changed = acceptedText !== source.value;
-  if (changed) separateAt = null;
-  acceptedText = source.value;
-  acceptedLayout = candidate;
-  if (changed) {
-    if (!saving && !saveConflict) updateDraftStatus();
-    saveAfter = performance.now() + saveDelay;
-    updateUnloadWarning();
-    queueDraftSave();
-  }
+  if (acceptedText !== previousBody) scheduleDraftSave();
   return acceptedLayout;
 }
 
@@ -348,32 +281,44 @@ function saveDraft() {
   return saveTask;
 }
 
-async function changeQuestion(offset) {
-  if (changingQuestion) return;
-  changingQuestion = true;
+async function confirmDraftSaved(leaving = false) {
+  if (checkingDraft) return false;
+  checkingDraft = true;
   questionNavigation.disabled = true;
+  logoutButton.disabled = true;
+  source.blur();
   source.disabled = true;
   clearTimeout(saveTimer);
   await saveTask;
   if (acceptedText !== savedText && !saveConflict) await saveDraft();
-  if (acceptedText === savedText) {
-    location.assign(`/manuscript?question=${question + offset}`);
-    return;
+  const ready = acceptedText === savedText && !saveConflict;
+  if (!leaving || !ready) {
+    checkingDraft = false;
+    questionNavigation.disabled = false;
+    logoutButton.disabled = false;
+    source.disabled = false;
+    if (!ready) source.focus({ preventScroll: true });
   }
-  changingQuestion = false;
-  questionNavigation.disabled = false;
-  source.disabled = false;
+  return ready;
 }
 
-previousQuestion.addEventListener('click', () => changeQuestion(-1));
-nextQuestion.addEventListener('click', () => changeQuestion(1));
+async function leaveAfterSave(leave) {
+  if (await confirmDraftSaved(true)) leave();
+}
+
+previousQuestion.addEventListener('click', () => leaveAfterSave(() => location.assign(`/manuscript?question=${question - 1}`)));
+nextQuestion.addEventListener('click', () => leaveAfterSave(() => location.assign(`/manuscript?question=${question + 1}`)));
+logoutForm.addEventListener('submit', event => {
+  event.preventDefault();
+  void leaveAfterSave(() => logoutForm.submit());
+});
 window.addEventListener('pageshow', event => {
   if (event.persisted) location.reload();
 });
 
 async function persistDraft() {
   saveAfter = null;
-  const body = acceptedText;
+  const body = draftBody();
   if (body === savedText) return;
   saving = true;
   updateUnloadWarning();
@@ -383,6 +328,7 @@ async function persistDraft() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Editor-Session': editorToken },
       body: JSON.stringify({ body, revision }),
+      signal: AbortSignal.timeout(15000),
     });
     const result = await response.json();
     if (!response.ok) {
@@ -392,13 +338,7 @@ async function persistDraft() {
     }
     revision = result.revision;
     savedText = body;
-    const time = Date.now();
-    displaySaveTime(time);
-    try {
-      sessionStorage.setItem(saveTimeKey(), JSON.stringify({ revision, time }));
-    } catch {
-      // The time can still be displayed in the current page.
-    }
+    displaySaveTime(result.savedAt);
     updateDraftStatus();
   } catch {
     setDraftStatus('error', '자동 저장에 실패했습니다. 연결을 확인한 뒤 내용을 수정하면 다시 저장합니다.');
@@ -406,32 +346,6 @@ async function persistDraft() {
     saving = false;
     updateUnloadWarning();
     queueDraftSave();
-  }
-}
-
-const lowMark = /^[.,。，．，、]$/;
-const sharedQuoteWidth = 0.34;
-
-function fitGlyphs(groups) {
-  const fits = [];
-  for (const group of groups) {
-    if (!group.isConnected || !group.offsetWidth) continue;
-    const cellWidth = group.closest('.cell').clientWidth;
-    const glyphs = group.parentElement;
-    const closeMark = group.classList.contains('cell-line') ? glyphs.querySelector('.mark-close') : null;
-    const quoteSpace = closeMark ? cellWidth * 0.16 + Math.min(closeMark.offsetWidth, cellWidth * sharedQuoteWidth) : 0;
-    let availableWidth = cellWidth * 0.94;
-    if (closeMark) {
-      availableWidth = cellWidth * 0.96 - quoteSpace;
-    } else if (group.classList.contains('cell-mark')) {
-      const sharesWithText = group.classList.contains('mark-close') && glyphs.querySelector('.cell-line');
-      availableWidth = cellWidth * (sharesWithText ? sharedQuoteWidth : 0.76);
-    }
-    fits.push({ group, scale: Math.min(1, availableWidth / group.offsetWidth), quoteSpace });
-  }
-  for (const { group, scale, quoteSpace } of fits) {
-    group.style.setProperty('--glyph-scale', scale);
-    if (quoteSpace) group.parentElement.style.setProperty('--quote-space', `${quoteSpace}px`);
   }
 }
 
@@ -452,45 +366,6 @@ new ResizeObserver(([entry]) => {
   queueGlyphFits(sheets.querySelectorAll('.fit-glyphs'));
 }).observe(sheets);
 
-function quoteGlyph(display, quote) {
-  const single = /^['＇‘’]$/.test(display);
-  return quote === 'open' ? (single ? '‘' : '“') : (single ? '’' : '”');
-}
-
-function cellGlyphs(data) {
-  const glyphs = document.createElement('span');
-  glyphs.className = 'cell-glyphs';
-  const line = document.createElement('span');
-  line.className = 'cell-line';
-  const corners = { open: '', close: '', low: '' };
-  const parts = (data.parts ?? [data]).filter(({ display }) => display);
-  const hasMain = parts.some(({ display, quote }) => !quote && !lowMark.test(display));
-  for (const { display, quote } of parts) {
-    if (quote) {
-      corners[quote] += quoteGlyph(display, quote);
-    } else if (!hasMain && lowMark.test(display)) {
-      corners.low += display;
-    } else {
-      line.append(display.replace(/[ａ-ｚ０-９]/g, character => character.normalize('NFKC')));
-      if ([...segmenter.segment(display)].length > 1) line.classList.add('fit-glyphs');
-    }
-  }
-  if (line.hasChildNodes()) {
-    if (data.parts) line.classList.add('fit-glyphs');
-    glyphs.append(line);
-  }
-  for (const [corner, display] of Object.entries(corners)) {
-    if (!display) continue;
-    const mark = document.createElement('span');
-    mark.className = `cell-mark mark-${corner}`;
-    if (display.length > 1 || (corner === 'close' && hasMain)) mark.classList.add('fit-glyphs');
-    mark.textContent = display;
-    glyphs.append(mark);
-  }
-  queueGlyphFits(glyphs.querySelectorAll('.fit-glyphs'));
-  return glyphs;
-}
-
 function render(next = layoutDraft(source.value)) {
   const previousCells = model?.cells ?? [];
   model = next;
@@ -500,21 +375,11 @@ function render(next = layoutDraft(source.value)) {
     (offsetsByRow[row] ??= []).push(offset);
   });
 
-  const needed = maxCells ?? Math.max(ROWS, Math.ceil((model.positions.at(-1).cell + 1) / columns)) * columns;
+  const needed = visibleCellCount(model, columns, maxCells);
   if (renderedCells.length < needed) {
     const fragment = document.createDocumentFragment();
     for (let index = renderedCells.length; index < needed; index++) {
-      const cell = document.createElement('span');
-      const cellNumber = index + 1;
-      cell.className = 'cell';
-      cell.dataset.cell = index;
-      cell.append(document.createTextNode(''));
-      if (cellNumber % (columns * 2) === 0 || cellNumber === maxCells) {
-        const count = document.createElement('span');
-        count.className = 'row-count';
-        count.textContent = cellNumber;
-        cell.append(count);
-      }
+      const cell = createGridCell(index, columns, maxCells);
       renderedCells.push(cell);
       fragment.append(cell);
     }
@@ -532,11 +397,12 @@ function render(next = layoutDraft(source.value)) {
     if (!data?.parts && !previous?.parts && data?.display === previous?.display &&
         data?.quote === previous?.quote) continue;
     element.firstChild.replaceWith(data ? cellGlyphs(data) : document.createTextNode(''));
+    queueGlyphFits(element.querySelectorAll('.fit-glyphs'));
   }
 
   const count = model.usedCells.toLocaleString('ko-KR');
   const total = maxCells === null ? '' : ' / ' + maxCells.toLocaleString('ko-KR');
-  const overLimit = maxCells !== null && model.usedCells > maxCells ? ' · 한도 초과' : '';
+  const overLimit = withinCellLimit(model, maxCells) ? '' : ' · 한도 초과';
   status.textContent = count + total + '칸' + overLimit;
   paintSelection(true);
 }
@@ -717,38 +583,47 @@ source.addEventListener('copy', copyWithoutCellBreaks);
 source.addEventListener('cut', copyWithoutCellBreaks);
 
 source.addEventListener('input', event => {
-  const composing = composingFrom !== null || event.isComposing;
-  const next = composing ? undefined : acceptInput(editSelection);
   preferredColumn = null;
-  render(composing && isFinalCellInsertion(compositionSelection) ? acceptedLayout : next);
+  if (composingFrom === null && !event.isComposing) {
+    render(acceptInput(editSelection));
+    return;
+  }
+  const text = source.value;
+  const preview = layoutDraft(text);
+  const separator = separatorForEdit(text, compositionSelection);
+  const [start] = compositionSelection;
+  const body = separator ? text.slice(0, start) + separator + text.slice(start) : text;
+  const candidate = separator ? layoutDraft(body) : preview;
+  // Save the visible IME text after a pause without committing the native composition.
+  composingDraft = acceptsEdit(body, candidate, compositionSelection) ? body : null;
+  scheduleDraftSave();
+  render(isFinalCellInsertion(compositionSelection) ? acceptedLayout : preview);
 });
 
 source.addEventListener('compositionstart', () => {
   compositionSelection = selection();
   composingFrom = source.selectionStart;
   composingText = '';
-  clearTimeout(saveTimer);
 });
 
 source.addEventListener('compositionupdate', event => {
   composingText = event.data;
 });
 
-source.addEventListener('compositionend', () => {
+function finishComposition() {
+  if (composingFrom === null) return;
+  const previousBody = draftBody();
   composingFrom = null;
   composingText = '';
+  composingDraft = null;
   editSelection = compositionSelection;
-  const next = acceptInput(compositionSelection);
-  queueDraftSave();
-  render(next);
-});
+  render(acceptInput(compositionSelection, previousBody));
+}
 
+source.addEventListener('compositionend', finishComposition);
 source.addEventListener('focus', () => paintSelection());
 source.addEventListener('blur', () => {
-  const wasComposing = composingFrom !== null;
-  composingFrom = null;
-  composingText = '';
-  if (wasComposing) queueDraftSave();
+  finishComposition();
   paintSelection();
 });
 source.addEventListener('select', () => paintSelection());
@@ -840,17 +715,11 @@ try {
   columns = settings.columns;
   maxCells = settings.maxCharacters;
   revision = settings.revision;
+  printSettings = settings;
   source.value = settings.body;
   savedText = acceptedText = source.value;
   document.querySelector('.editor').style.setProperty('--columns', columns);
-  let previousSaveTime;
-  try {
-    const previousSave = JSON.parse(sessionStorage.getItem(saveTimeKey()));
-    if (previousSave?.revision === revision) previousSaveTime = previousSave.time;
-  } catch {
-    // No stored timestamp is available in this tab.
-  }
-  displaySaveTime(previousSaveTime);
+  displaySaveTime(settings.savedAt);
   updateDraftStatus();
   acceptedLayout = layoutDraft(acceptedText);
   render(acceptedLayout);

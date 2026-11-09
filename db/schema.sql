@@ -17,12 +17,13 @@ ALTER TABLE `Manuscript`.editor_state
   ADD COLUMN IF NOT EXISTS candidate_number_digits TINYINT UNSIGNED NULL
     CHECK (candidate_number_digits BETWEEN 1 AND 32);
 
-INSERT INTO `Manuscript`.editor_state (id, columns_per_row, max_characters)
-SELECT 1, 40, 470 WHERE NOT EXISTS (SELECT 1 FROM `Manuscript`.editor_state WHERE id = 1)
-ON DUPLICATE KEY UPDATE id = VALUES(id);
-
 ALTER TABLE `Manuscript`.editor_state
   ADD COLUMN IF NOT EXISTS question_titles JSON NULL;
+
+INSERT INTO `Manuscript`.editor_state (id, columns_per_row, question_titles)
+SELECT 1, 40, JSON_ARRAY(JSON_OBJECT('title', '문제 1', 'maxCharacters', 470))
+WHERE NOT EXISTS (SELECT 1 FROM `Manuscript`.editor_state WHERE id = 1)
+ON DUPLICATE KEY UPDATE id = VALUES(id);
 
 CREATE TABLE IF NOT EXISTS `Manuscript`.candidate_drafts (
   candidate_number VARCHAR(32) NOT NULL,
@@ -33,3 +34,6 @@ CREATE TABLE IF NOT EXISTS `Manuscript`.candidate_drafts (
   revision INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (candidate_number, candidate_name, birth_date, question_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+ALTER TABLE `Manuscript`.candidate_drafts
+  ADD COLUMN IF NOT EXISTS saved_at TIMESTAMP(3) NULL DEFAULT NULL;

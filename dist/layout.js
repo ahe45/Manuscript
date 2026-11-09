@@ -3,6 +3,14 @@ export const ROWS = 10;
 export const PAGE_SIZE = COLUMNS * ROWS;
 export const CELL_BREAK = '\u2063';
 
+export function withinCellLimit(model, maxCells) {
+  return maxCells === null || model.usedCells <= maxCells;
+}
+
+export function visibleCellCount(model, columns, maxCells) {
+  return maxCells ?? Math.max(ROWS, Math.ceil((model.positions.at(-1).cell + 1) / columns)) * columns;
+}
+
 const graphemes = new Intl.Segmenter('ko', { granularity: 'grapheme' });
 const digit = /^[0-9０-９]$/;
 const lowercase = /^[a-zａ-ｚ]$/;

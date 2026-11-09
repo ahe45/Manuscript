@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>수험생 로그인</title>
+  <link rel="icon" href="/manuscript.ico">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <main class="login">
+  <main class="login candidate-login">
     <header class="masthead">
+      <img class="system-icon" src="/manuscript.ico" width="44" height="44" alt="Manuscript">
       <h1>수험생 로그인</h1>
     </header>
     <form id="login-form" class="workspace" method="post" autocomplete="off">
@@ -26,13 +28,29 @@
             <div><label for="birth-day">일</label><select id="birth-day" name="day" required disabled><option value="">선택</option></select></div>
           </div>
         </fieldset>
+        <fieldset id="access-code-fields" hidden disabled>
+          <label for="access-code">수험생 접속 코드</label>
+          <input id="access-code" name="accessCode" type="password" maxlength="12" autocomplete="off" required>
+        </fieldset>
         <div class="login-actions">
-          <button type="submit">로그인</button>
-          <a class="settings-link" href="/setting?from=login">설정</a>
+          <button class="toolbar-button toolbar-button-blue" type="submit">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m10 17 5-5-5-5m5 5H3m9-8h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+            </svg>
+            로그인
+          </button>
+          <a class="toolbar-button toolbar-button-gray" href="/setting-login">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 3h4l.5 2.7 1.4.8 2.6-.9 2 3.4-2.1 1.8v2.4l2.1 1.8-2 3.4-2.6-.9-1.4.8L14 21h-4l-.5-2.7-1.4-.8-2.6.9-2-3.4 2.1-1.8v-2.4L3.5 9l2-3.4 2.6.9 1.4-.8L10 3Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            관리자
+          </a>
         </div>
       </fieldset>
       <p id="login-status" role="status"></p>
     </form>
+    <footer>© 2026 U-PLUS SYSTEM</footer>
   </main>
   <script type="module" src="/login.js"></script>
 </body>
