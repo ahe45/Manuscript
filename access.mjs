@@ -47,14 +47,25 @@ export function checkCandidateCode(secret, candidate, input) {
   return timingSafeEqual(Buffer.from(issueCandidateCode(secret, candidate)), Buffer.from(input.trim().toUpperCase()));
 }
 
+const minAdminPasswordLength = 4;
+const maxAdminPasswordLength = 20;
+export const adminPasswordRange = `${minAdminPasswordLength}~${maxAdminPasswordLength}자`;
+
+export function validNewAdminPassword(password) {
+  if (typeof password !== 'string') return false;
+  const length = [...password].length;
+  return length >= minAdminPasswordLength && length <= maxAdminPasswordLength;
+}
+
 export async function hashAdminPassword(password) {
-  if (typeof password !== 'string' || password.length < 12 || password.length > 256) throw new Error('관리자 비밀번호는 12~256자로 설정하세요.');
+  if (!validNewAdminPassword(password)) throw new Error(`관리자 비밀번호는 ${adminPasswordRange}로 설정하세요.`);
   const salt = randomBytes(16);
   const key = await deriveKey(password, salt, 32);
   return salt.toString('hex') + ':' + key.toString('hex');
 }
 
 export async function checkAdminPassword(hash, password) {
+  // Existing deployments may still use passwords created under the old limit.
   if (typeof password !== 'string' || !password || password.length > 256) return false;
   const [salt, key] = hash.split(':').map(value => Buffer.from(value, 'hex'));
   return timingSafeEqual(key, await deriveKey(password, salt, 32));

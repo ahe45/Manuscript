@@ -150,7 +150,7 @@ async function checkWebProfile() {
     incoming.pipe(upstream);
   });
   const url = 'https://127.0.0.1:' + await listen(proxy);
-  const adminPassword = 'test-fixture-passphrase';
+  const adminPassword = 'fixture-admin-pass';
   const candidateSecret = randomBytes(32).toString('hex');
   web = launch(join(install, 'runtime/node/node.exe'), ['server.mjs'], {
     cwd: install,

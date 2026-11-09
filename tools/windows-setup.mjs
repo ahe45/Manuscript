@@ -5,7 +5,7 @@ import { clearLine, cursorTo, moveCursor } from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import { parseEnv } from 'node:util';
-import { hashAdminPassword, readWebAccess } from '../access.mjs';
+import { adminPasswordRange, hashAdminPassword, readWebAccess, validNewAdminPassword } from '../access.mjs';
 
 const envPath = '.env';
 const validHash = value => /^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(value ?? '');
@@ -90,9 +90,9 @@ async function promptForSettings(env, set) {
 
     if (!validHash(env.ADMIN_PASSWORD_HASH)) {
       for (;;) {
-        const password = await ask('관리자 비밀번호 (12~256자): ', true);
-        if (password.length < 12 || password.length > 256) {
-          console.log('관리자 비밀번호는 12~256자로 입력하세요.');
+        const password = await ask(`관리자 비밀번호 (${adminPasswordRange}): `, true);
+        if (!validNewAdminPassword(password)) {
+          console.log(`관리자 비밀번호는 ${adminPasswordRange}로 입력하세요.`);
           continue;
         }
         if (password === await ask('관리자 비밀번호 확인: ', true)) {

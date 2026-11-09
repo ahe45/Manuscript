@@ -23,6 +23,15 @@ test('web profile requires HTTPS and dedicated credentials', async () => {
   assert.throws(() => readWebAccess({ ...env, ADMIN_PASSWORD_HASH: '' }));
 });
 
+test('new administrator passwords accept 4 to 20 characters', async () => {
+  for (const password of ['1234', '가'.repeat(20)]) {
+    assert.equal(await checkAdminPassword(await hashAdminPassword(password), password), true);
+  }
+  for (const password of ['123', '가'.repeat(21)]) {
+    await assert.rejects(hashAdminPassword(password), /4~20자/);
+  }
+});
+
 test('web profile can use the HTTPS proxy host without a configured public origin', () => {
   const env = {
     APP_PROFILE: 'web', ADMIN_PASSWORD_HASH: '0'.repeat(32) + ':' + '1'.repeat(64),
