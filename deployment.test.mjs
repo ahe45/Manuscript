@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   candidateDetails, checkCandidateCode, checkAdminPassword, createLoginThrottle, hashAdminPassword,
-  issueCandidateCode, readWebAccess,
+  issueCandidateCode, readWebAccess, webRequestOrigin,
 } from './access.mjs';
 import { createPdfQueue } from './pdf-queue.mjs';
 import { layout, visibleCellCount, withinCellLimit } from './dist/layout.js';
@@ -21,6 +21,21 @@ test('web profile requires HTTPS and dedicated credentials', async () => {
   assert.throws(() => readWebAccess({ ...env, PUBLIC_ORIGIN: 'http://example.test' }));
   assert.throws(() => readWebAccess({ ...env, PUBLIC_ORIGIN: 'https://example.test/path' }));
   assert.throws(() => readWebAccess({ ...env, ADMIN_PASSWORD_HASH: '' }));
+});
+
+test('web profile can use the HTTPS proxy host without a configured public origin', () => {
+  const env = {
+    APP_PROFILE: 'web', ADMIN_PASSWORD_HASH: '0'.repeat(32) + ':' + '1'.repeat(64),
+    CANDIDATE_ACCESS_SECRET: 'x'.repeat(32),
+  };
+  const access = readWebAccess(env);
+  const headers = { host: 'Manuscript.example.test:443', 'x-forwarded-proto': 'https' };
+  assert.equal(webRequestOrigin(access, headers), 'https://manuscript.example.test');
+  assert.equal(webRequestOrigin(access, { host: headers.host }), undefined);
+  assert.equal(webRequestOrigin(access, { ...headers, host: 'other.test@manuscript.example.test' }), undefined);
+  assert.equal(webRequestOrigin(access, { ...headers, host: 'manuscript.example.test/path' }), undefined);
+  assert.equal(webRequestOrigin(access, { ...headers, host: 'manuscript.example.test:8443' }), 'https://manuscript.example.test:8443');
+  assert.equal(webRequestOrigin(readWebAccess({ ...env, PUBLIC_ORIGIN: 'https://only.example.test' }), headers), undefined);
 });
 
 test('candidate code is bound to normalized candidate identity', () => {

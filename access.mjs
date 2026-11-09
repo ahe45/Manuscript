@@ -5,11 +5,22 @@ const deriveKey = promisify(scrypt);
 
 export function readWebAccess(env) {
   if (env.APP_PROFILE !== 'web') return null;
-  const url = new URL(env.PUBLIC_ORIGIN ?? '');
-  if (url.protocol !== 'https:' || url.href !== url.origin + '/') throw new Error('PUBLIC_ORIGIN에는 HTTPS 주소만 설정하세요.');
+  const url = env.PUBLIC_ORIGIN ? URL.parse(env.PUBLIC_ORIGIN) : null;
+  if (env.PUBLIC_ORIGIN && (url?.protocol !== 'https:' || url.href !== url.origin + '/')) {
+    throw new Error('PUBLIC_ORIGIN에는 HTTPS 주소만 설정하세요.');
+  }
   if (!/^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(env.ADMIN_PASSWORD_HASH ?? '')) throw new Error('ADMIN_PASSWORD_HASH를 설정하세요.');
   if ((env.CANDIDATE_ACCESS_SECRET ?? '').length < 32) throw new Error('CANDIDATE_ACCESS_SECRET을 32자 이상으로 설정하세요.');
-  return { origin: url.origin, host: url.host, adminHash: env.ADMIN_PASSWORD_HASH, candidateSecret: env.CANDIDATE_ACCESS_SECRET };
+  return { origin: url?.origin, host: url?.host, adminHash: env.ADMIN_PASSWORD_HASH, candidateSecret: env.CANDIDATE_ACCESS_SECRET };
+}
+
+export function webRequestOrigin(access, headers) {
+  if (headers['x-forwarded-proto'] !== 'https' || typeof headers.host !== 'string') return;
+  const host = headers.host.toLowerCase();
+  const url = URL.parse('https://' + host);
+  if (!url || (host !== url.host && host !== url.hostname + ':443')) return;
+  if (access.origin && url.origin !== access.origin) return;
+  return url.origin;
 }
 
 export function candidateDetails(value) {

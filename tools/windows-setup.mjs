@@ -1,6 +1,5 @@
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { BlockList, isIPv4 } from 'node:net';
 import { stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
@@ -8,20 +7,9 @@ import { parseEnv } from 'node:util';
 import { hashAdminPassword, readWebAccess } from '../access.mjs';
 
 const envPath = '.env';
-const profiles = ['web', 'local'];
-const sampleOrigin = 'https://manuscript.example.org';
 const validHash = value => /^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(value ?? '');
 const validSecret = value => (value?.length ?? 0) >= 32;
 const validPort = value => /^\d+$/.test(value ?? '') && Number(value) >= 1 && Number(value) <= 65535;
-const validOrigin = value => {
-  if (!value || value.replace(/\/$/, '') === sampleOrigin) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.href === url.origin + '/';
-  } catch {
-    return false;
-  }
-};
 
 function envLine(key, value) {
   for (const encoded of [value, `'${value}'`, `"${value}"`, '\x60' + value + '\x60']) {
@@ -32,21 +20,10 @@ function envLine(key, value) {
   throw new Error(`${key}에 .env로 저장할 수 없는 문자가 있습니다.`);
 }
 
-function isConfigured(env) {
-  return profiles.includes(env.APP_PROFILE) && env.DB_USER && env.DB_PASSWORD &&
-    (env.APP_PROFILE === 'local' ||
-      (validOrigin(env.PUBLIC_ORIGIN) && validHash(env.ADMIN_PASSWORD_HASH) && validSecret(env.CANDIDATE_ACCESS_SECRET)));
-}
-
-async function configure() {
-  const existing = existsSync(envPath);
-  const original = existing ? readFileSync(envPath, 'utf8') : '';
-  const env = parseEnv(original);
-  if (isConfigured(env)) return;
-  if (Number(process.versions.node.split('.')[0]) !== 24) throw new Error('Node.js 24가 필요합니다.');
+async function promptForSettings(env, set) {
+  if (validPort(env.DB_PORT) && env.DB_USER && env.DB_PASSWORD && validHash(env.ADMIN_PASSWORD_HASH)) return;
   if (!stdin.isTTY || !stdout.isTTY) throw new Error('처음 설정할 때는 명령 프롬프트에서 start.bat을 직접 실행하세요.');
 
-  const changes = new Map();
   let masked = false;
   const output = new Writable({
     write(chunk, encoding, done) {
@@ -74,13 +51,6 @@ async function configure() {
     }
   }
 
-  function set(key, value) {
-    envLine(key, value);
-    env[key] = value;
-    changes.set(key, value);
-    return value;
-  }
-
   async function field(key, label, { fallback, valid = Boolean, secret = false } = {}) {
     if (valid(env[key])) return env[key];
     const prompt = fallback ? `${label} [${fallback}]: ` : `${label}: `;
@@ -100,71 +70,54 @@ async function configure() {
 
   try {
     console.log('Manuscript 서버 설정');
-    if (!profiles.includes(env.APP_PROFILE)) {
-      let choice;
-      do {
-        choice = (await ask('운영 방식 (1: HTTPS 웹, 2: 내부망 HTTP) [1]: ')) || '1';
-      } while (choice !== '1' && choice !== '2');
-      set('APP_PROFILE', choice === '1' ? 'web' : 'local');
-    }
-    await field('PORT', '서버 포트', { fallback: '4174', valid: validPort });
-    await field('DB_HOST', 'DB 호스트', { fallback: '127.0.0.1' });
     await field('DB_PORT', 'DB 포트', { fallback: '3306', valid: validPort });
-    await field('DB_NAME', 'DB 이름', { fallback: 'Manuscript' });
     await field('DB_USER', 'DB 계정', { fallback: 'manuscript_app' });
     await field('DB_PASSWORD', 'DB 비밀번호', { secret: true });
 
-    if (env.APP_PROFILE === 'web') {
-      await field('PUBLIC_ORIGIN', '실제 접속 HTTPS 주소', { valid: validOrigin });
-      if (!validHash(env.ADMIN_PASSWORD_HASH)) {
-        for (;;) {
-          const password = await ask('관리자 비밀번호 (12~256자): ', true);
-          if (password.length < 12 || password.length > 256) {
-            console.log('관리자 비밀번호는 12~256자로 입력하세요.');
-            continue;
-          }
-          if (password === await ask('관리자 비밀번호 확인: ', true)) {
-            set('ADMIN_PASSWORD_HASH', await hashAdminPassword(password));
-            break;
-          }
-          console.log('비밀번호가 서로 다릅니다.');
+    if (!validHash(env.ADMIN_PASSWORD_HASH)) {
+      for (;;) {
+        const password = await ask('관리자 비밀번호 (12~256자): ', true);
+        if (password.length < 12 || password.length > 256) {
+          console.log('관리자 비밀번호는 12~256자로 입력하세요.');
+          continue;
         }
+        if (password === await ask('관리자 비밀번호 확인: ', true)) {
+          set('ADMIN_PASSWORD_HASH', await hashAdminPassword(password));
+          break;
+        }
+        console.log('비밀번호가 서로 다릅니다.');
       }
-      if (!validSecret(env.CANDIDATE_ACCESS_SECRET)) set('CANDIDATE_ACCESS_SECRET', randomBytes(32).toString('base64url'));
-      readWebAccess(env);
-    } else {
-      const privateAddresses = new BlockList();
-      privateAddresses.addSubnet('10.0.0.0', 8);
-      privateAddresses.addSubnet('172.16.0.0', 12);
-      privateAddresses.addSubnet('192.168.0.0', 16);
-      const isPrivate = value => isIPv4(value) && privateAddresses.check(value);
-      const host = await field('LAN_HOST', '서버 내부망 IPv4 주소 (서버 PC에서만 접속하려면 Enter)',
-        { valid: value => value === '' || isPrivate(value) });
-      if (host) {
-        await field('LAN_SUBNET', '허용 내부망 CIDR', {
-          fallback: host.split('.').slice(0, 3).join('.') + '.0/24',
-          valid: value => {
-            const [network, prefix, extra] = (value ?? '').split('/');
-            if (extra !== undefined || !isPrivate(network) || !/^(1[6-9]|2\d|3[0-2])$/.test(prefix ?? '')) return false;
-            const subnet = new BlockList();
-            subnet.addSubnet(network, Number(prefix));
-            return subnet.check(host);
-          },
-        });
-      } else {
-        set('LAN_SUBNET', '');
-      }
-    }
-
-    if (!validSecret(env.CANDIDATE_KEY_SECRET)) {
-      await field('CANDIDATE_KEY_SECRET', '이전 해시 원고의 기존 키 (새 DB는 Enter)',
-        { secret: true, valid: value => value === '' || validSecret(value) });
     }
   } finally {
     input.close();
     stdin.pause();
     stdin.unref?.();
   }
+}
+
+async function configure() {
+  if (Number(process.versions.node.split('.')[0]) !== 24) throw new Error('Node.js 24가 필요합니다.');
+  const existing = existsSync(envPath);
+  const original = existing ? readFileSync(envPath, 'utf8') : '';
+  const env = parseEnv(original);
+  const changes = new Map();
+  function set(key, value) {
+    envLine(key, value);
+    env[key] = value;
+    changes.set(key, value);
+    return value;
+  }
+
+  if (env.APP_PROFILE !== 'web') set('APP_PROFILE', 'web');
+  if (!env.PORT) set('PORT', '4174');
+  if (!env.DB_HOST) set('DB_HOST', '127.0.0.1');
+  if (!env.DB_NAME) set('DB_NAME', 'Manuscript');
+  if (env.PUBLIC_ORIGIN?.replace(/\/$/, '') === 'https://manuscript.example.org') set('PUBLIC_ORIGIN', '');
+
+  await promptForSettings(env, set);
+  if (!validSecret(env.CANDIDATE_ACCESS_SECRET)) set('CANDIDATE_ACCESS_SECRET', randomBytes(32).toString('base64url'));
+  readWebAccess(env);
+  if (!changes.size) return;
 
   const lines = [...changes].map(([key, value]) => envLine(key, value)).join('\r\n');
   if (existing) {

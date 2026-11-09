@@ -11,13 +11,17 @@ start.bat
 ```
 
 1. 운영 DB가 있다면 먼저 백업합니다. MariaDB 관리자 계정으로 `db/schema.sql`을 적용하고 앱 계정에는 `editor_state` 조회·수정과 `candidate_drafts` 조회·추가·수정 권한을 부여합니다.
-2. `start.bat`의 설정 안내에 따라 운영 방식, 서버 포트, DB 호스트·포트·이름·계정·비밀번호를 입력합니다. 이미 `.env`에 유효한 값이 있으면 해당 입력을 건너뜁니다. HTTPS 웹 운영의 경우 실제 HTTPS 주소와 관리자 비밀번호를 입력하면 관리자 해시와 수험생 접속 코드 비밀키가 자동으로 생성됩니다. 이전 해시 원고가 있는 경우에만 기존 이전 키를 입력합니다.
+2. `start.bat`에서 DB 포트·계정·비밀번호와 관리자 비밀번호를 입력합니다. 이미 `.env`에 유효한 값이 있으면 해당 입력을 건너뜁니다. 웹 모드로 실행하며 앱 포트는 `4174`, DB 호스트는 `127.0.0.1`, DB 이름은 `Manuscript`가 기본값입니다. 관리자 비밀번호 해시와 수험생 접속 코드 비밀키는 자동으로 생성합니다. 이전 해시 원고가 있다면 기존 `CANDIDATE_KEY_SECRET`을 `.env`에 직접 설정합니다.
 3. 설정이 완료되면 `.env`를 저장하고, 필요한 npm 의존성과 PDF용 Chromium을 준비한 뒤 같은 창에서 서버를 시작합니다. 이 창의 `Ctrl+C`로 종료합니다. Google Chrome을 사용하려면 서버에 Chrome을 설치하고 `.env`에 `PDF_BROWSER_CHANNEL=chrome`을 설정합니다.
-4. HTTPS 프록시에서 실제 도메인과 인증서를 설정하고 요청을 `127.0.0.1:4174`로 전달합니다. `Host`를 유지하고 `X-Forwarded-Proto: https`와 `X-Forwarded-For`를 설정합니다. 서버 포트를 바꾼 경우 프록시 대상 포트도 맞춥니다. [Nginx 예시](manuscript.nginx.conf)의 도메인과 인증서 경로를 운영 환경에 맞게 적용할 수 있습니다.
+4. 같은 서버의 Caddy에서 운영 도메인을 설정하고 `127.0.0.1:4174`로 전달합니다. Manuscript는 Caddy가 전달한 HTTPS 요청의 호스트를 사용합니다. 특정 호스트 하나로 앱에서도 제한하려면 `.env`에 `PUBLIC_ORIGIN`을 지정할 수 있습니다. 서버 포트를 바꾼 경우 프록시 대상 포트도 맞춥니다.
+
+   ```caddyfile
+   manuscript.example.org {
+       reverse_proxy 127.0.0.1:4174
+   }
+   ```
 
 업데이트할 때는 먼저 서버를 종료하고 `update.bat`을 실행합니다. 현재 브랜치의 추적 브랜치에서 빨리 감기 방식으로만 가져오며, 추적 파일에 로컬 변경 사항이 있거나 서버 포트가 사용 중이면 중단합니다. 결과는 `log/update-server.log`에서 확인할 수 있습니다. 스키마 변경 안내가 나오면 DB를 백업하고 `db/schema.sql`을 적용한 뒤 `start.bat`을 실행합니다. 두 배치 파일은 `--no-pause` 옵션으로 오류나 업데이트 종료 시 대기를 생략할 수 있습니다.
-
-내부망 전용으로 운영할 경우에만 `APP_PROFILE=local`과 기존 `LAN_HOST`·`LAN_SUBNET` 설정을 사용합니다. 이 모드의 관리자 화면은 서버 PC의 루프백 주소에서 엽니다.
 
 ## Linux에서 systemd로 운영
 

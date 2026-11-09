@@ -10,6 +10,7 @@ if errorlevel 1 (
 
 node tools/windows-setup.mjs
 if errorlevel 1 goto FAILED
+set "APP_PROFILE=web"
 node --env-file=.env tools/windows-server.mjs prepare
 if errorlevel 1 goto FAILED
 

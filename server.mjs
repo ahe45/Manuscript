@@ -11,7 +11,7 @@ import { createPdfDownload, writeCandidatePdfArchive } from './pdf.mjs';
 import { layout, withinCellLimit } from './dist/layout.js';
 import { koreanFontAsset } from './fonts.mjs';
 import { createPdfQueue, PdfQueueError } from './pdf-queue.mjs';
-import { candidateDetails, checkCandidateCode, checkAdminPassword, createLoginThrottle, readWebAccess } from './access.mjs';
+import { candidateDetails, checkCandidateCode, checkAdminPassword, createLoginThrottle, readWebAccess, webRequestOrigin } from './access.mjs';
 
 const port = Number(process.env.PORT ?? 4174);
 const profile = process.env.APP_PROFILE ?? 'local';
@@ -664,14 +664,14 @@ try {
   process.exit(1);
 }
 
-async function handleRequest(request, response, local) {
+async function handleRequest(request, response, local, requestOrigin) {
   const path = request.url?.split('?')[0];
   const isApi = adminAnswerApis.has(path) || ['/api/settings', '/api/draft', '/api/login', '/api/pdf', '/api/admin/login'].includes(path);
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'same-origin');
   response.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
   try {
-    if (webAccess && ['POST', 'PUT'].includes(request.method) && request.headers.origin !== webAccess.origin) {
+    if (webAccess && ['POST', 'PUT'].includes(request.method) && request.headers.origin !== requestOrigin) {
       json(response, 403, { error: '요청 출처를 확인할 수 없습니다.' });
       request.resume();
       return;
@@ -740,16 +740,16 @@ async function handleRequest(request, response, local) {
 
 function listen(host, local) {
   const authority = `${host}:${port}`;
-  const authorities = new Set(webAccess ? [webAccess.host] : local ? [authority, `localhost:${port}`] : [authority]);
+  const authorities = new Set(local ? [authority, `localhost:${port}`] : [authority]);
   const server = createServer((request, response) => {
-    if (!authorities.has(request.headers.host?.toLowerCase()) ||
-        (webAccess && request.headers['x-forwarded-proto'] !== 'https') ||
+    const requestOrigin = webAccess && webRequestOrigin(webAccess, request.headers);
+    if ((webAccess ? !requestOrigin : !authorities.has(request.headers.host?.toLowerCase())) ||
         (!local && !lanClients.check(request.socket.remoteAddress ?? ''))) {
       response.writeHead(403, { 'Cache-Control': 'no-store' }).end();
       request.resume();
       return;
     }
-    void handleRequest(request, response, local);
+    void handleRequest(request, response, local, requestOrigin);
   });
   servers.add(server);
   server.on('close', () => servers.delete(server));
@@ -762,7 +762,9 @@ function listen(host, local) {
     }
   });
   server.listen(port, host, () => {
-    console.log(`원고지 연습장 · ${webAccess?.origin ?? 'http://' + authority}`);
+    const address = 'http://' + authority;
+    const entry = webAccess ? webAccess.origin ?? `HTTPS 프록시 연결 · ${address}` : address;
+    console.log(`원고지 연습장 · ${entry}`);
     if (local && lanHost) listen(lanHost, false);
   });
 }
