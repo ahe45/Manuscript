@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>원고지 설정</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="settings">
+    <header class="masthead">
+      <p class="eyebrow">한글 글쓰기 · 양식</p>
+      <h1>원고지 설정</h1>
+      <p>원고지 양식과 로그인에 사용하는 수험번호 자리 수를 설정하세요.</p>
+    </header>
+    <form id="settings-form" class="workspace">
+      <fieldset disabled>
+        <label for="title-input">원고지 제목</label>
+        <input id="title-input" name="title" type="text" maxlength="100" required aria-describedby="title-hint">
+        <p id="title-hint">편집기 상단과 브라우저 탭에 표시됩니다. 최대 100자까지 입력할 수 있습니다.</p>
+        <label for="columns">한 행의 입력 칸 수</label>
+        <input id="columns" name="columns" type="number" min="5" max="40" step="1" required aria-describedby="columns-hint">
+        <p id="columns-hint">5~40칸 사이에서 정할 수 있습니다. 원고지의 행은 이어서 표시됩니다.</p>
+        <label for="max-characters">최대 사용 칸 수</label>
+        <input id="max-characters" name="maxCharacters" type="number" min="1" max="10000" step="1" placeholder="제한 없음" aria-describedby="max-hint">
+        <p id="max-hint">원고가 차지한 칸을 셉니다. 들여쓰기와 문단 사이의 빈칸도 포함합니다. 비워 두면 제한 없이 쓸 수 있습니다.</p>
+        <label for="candidate-number-digits">수험번호 자리 수</label>
+        <input id="candidate-number-digits" name="candidateNumberDigits" type="number" min="1" max="32" step="1" placeholder="제한 없음" aria-describedby="number-digits-hint">
+        <p id="number-digits-hint">1~32자리로 설정하면 해당 자리 수의 숫자만 사용할 수 있습니다. 비워 두면 자리 수 규칙이 적용되지 않습니다.</p>
+        <label for="question-count">문제 개수</label>
+        <input id="question-count" name="questionCount" type="number" min="1" max="20" step="1" required aria-describedby="question-hint">
+        <p id="question-hint">1~20개를 설정할 수 있습니다. 문제명을 비우면 문제 번호로 표시됩니다.</p>
+        <div id="question-titles"></div>
+        <button type="submit">설정 저장</button>
+      </fieldset>
+      <p id="save-status" role="status"></p>
+    </form>
+    <footer><a id="settings-return" href="/manuscript">원고지 열기</a></footer>
+  </main>
+  <script type="module" src="/setting.js"></script>
+</body>
+</html>

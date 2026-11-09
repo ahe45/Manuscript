@@ -1,0 +1,15 @@
+{
+  "name": "manuscript",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "mariadb": "^3.5.5",
+    "pdf-lib": "^1.17.1",
+    "playwright-core": "^1.65.0"
+  }
+}

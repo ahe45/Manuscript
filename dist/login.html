@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>수험생 로그인</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="login">
+    <header class="masthead">
+      <h1>수험생 로그인</h1>
+    </header>
+    <form id="login-form" class="workspace" method="post" autocomplete="off">
+      <fieldset id="login-fields" disabled>
+        <label for="candidate-number">수험번호</label>
+        <input id="candidate-number" name="number" type="text" maxlength="32" required aria-describedby="candidate-number-hint">
+        <p id="candidate-number-hint" hidden></p>
+        <label for="candidate-name">이름</label>
+        <input id="candidate-name" name="name" type="text" maxlength="80" required>
+        <fieldset class="birth-fields">
+          <legend>생년월일</legend>
+          <div class="birth-selects">
+            <div><label for="birth-year">년</label><select id="birth-year" name="year" required><option value="">선택</option></select></div>
+            <div><label for="birth-month">월</label><select id="birth-month" name="month" required><option value="">선택</option></select></div>
+            <div><label for="birth-day">일</label><select id="birth-day" name="day" required disabled><option value="">선택</option></select></div>
+          </div>
+        </fieldset>
+        <div class="login-actions">
+          <button type="submit">로그인</button>
+          <a class="settings-link" href="/setting?from=login">설정</a>
+        </div>
+      </fieldset>
+      <p id="login-status" role="status"></p>
+    </form>
+  </main>
+  <script type="module" src="/login.js"></script>
+</body>
+</html>

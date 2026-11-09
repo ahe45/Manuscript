@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>원고지 연습장</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="editor">
+    <header class="masthead editor-masthead">
+      <div class="editor-heading">
+        <h1 id="editor-title">원고지 연습장</h1>
+      </div>
+      <div class="candidate-account">
+        <dl id="candidate-details" class="candidate-details" hidden>
+          <div><dt>수험번호</dt><dd data-field="number"></dd></div>
+          <div><dt>이름</dt><dd data-field="name"></dd></div>
+          <div><dt>생년월일</dt><dd data-field="birthDate"></dd></div>
+        </dl>
+        <div class="download-control">
+          <button id="download-button" class="toolbar-button" type="button" aria-expanded="false" aria-controls="download-options" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12m-5-5 5 5 5-5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+            </svg>
+            다운로드
+          </button>
+          <div id="download-options" role="group" aria-label="다운로드 범위" hidden>
+            <button class="toolbar-button" type="button" data-mode="current">현재 문항</button>
+            <button class="toolbar-button" type="button" data-mode="individual">전체(개별)</button>
+            <button class="toolbar-button" type="button" data-mode="merged">전체(병합)</button>
+          </div>
+        </div>
+        <form action="/logout" method="post">
+          <button class="toolbar-button logout-button" type="submit">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 17l5-5-5-5m5 5H3m9-8h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+            </svg>
+            로그아웃
+          </button>
+        </form>
+      </div>
+    </header>
+    <section class="workspace" aria-label="원고지 편집기">
+      <div class="toolbar">
+        <div class="question-toolbar">
+          <strong id="question-title">원고</strong>
+          <fieldset id="question-navigation" aria-label="문제 이동" hidden>
+            <button id="previous-question" class="toolbar-button" type="button">이전 문제</button>
+            <span id="question-position"></span>
+            <button id="next-question" class="toolbar-button" type="button">다음 문제</button>
+          </fieldset>
+        </div>
+        <div class="toolbar-controls">
+          <div class="editor-status">
+            <div class="save-status">
+              <span id="last-saved" hidden></span>
+              <span id="draft-status" role="status"></span>
+            </div>
+            <span id="status">설정 불러오는 중…</span>
+          </div>
+          <div id="zoom-controls" class="zoom-controls" role="group" aria-label="원고지 보기" hidden>
+            <div class="zoom-stepper">
+              <button id="zoom-out" type="button" aria-label="원고지 축소" title="축소">−</button>
+              <select id="zoom-preset" aria-label="원고지 배율">
+                <option value="50">50%</option>
+                <option value="75">75%</option>
+                <option value="100" selected>100%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+                <option value="175">175%</option>
+                <option value="200">200%</option>
+                <option value="225">225%</option>
+                <option value="250">250%</option>
+                <option value="275">275%</option>
+                <option value="300">300%</option>
+              </select>
+              <button id="zoom-in" type="button" aria-label="원고지 확대" title="확대">+</button>
+            </div>
+            <button id="zoom-reset" type="button" aria-label="화면 맞춤 (100%)" title="화면 맞춤 (100%)">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5M8 12h8"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="workspace-viewport">
+        <div class="workspace-content">
+          <div id="writing-area">
+            <div id="sheets" class="grid" aria-hidden="true"></div>
+            <textarea id="source" aria-label="원고 본문" lang="ko"
+              spellcheck="false" autocapitalize="off" autocomplete="off" rows="1" wrap="off" disabled></textarea>
+          </div>
+          <p id="load-message" role="status"></p>
+        </div>
+      </div>
+    </section>
+    <footer>© 2026 U-PLUS SYSTEM</footer>
+    <div id="download-status" role="status"></div>
+  </main>
+  <section id="print-sheet" class="print-sheet" aria-label="인쇄용 원고지"></section>
+  <dialog id="limit-dialog" aria-labelledby="limit-title" aria-describedby="limit-description">
+    <h2 id="limit-title">더 이상 입력할 수 없습니다</h2>
+    <p id="limit-description"></p>
+    <form method="dialog"><button type="submit" autofocus>확인</button></form>
+  </dialog>
+  <script type="module" src="/editor.js"></script>
+</body>
+</html>
