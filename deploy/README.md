@@ -1,5 +1,32 @@
 # 외부 접속용 웹 배포
 
+## Windows에서 Git 복제본 운영
+
+Git for Windows, Node.js 24와 npm, MariaDB를 준비합니다. 명령 프롬프트에서 다음과 같이 복제합니다.
+
+```bat
+git clone https://github.com/ahe45/Manuscript.git
+cd Manuscript
+start.bat
+```
+
+1. 첫 실행으로 생성된 `.env`에 운영 DB 연결 정보와 실제 HTTPS 주소(`PUBLIC_ORIGIN`)를 입력합니다. 기본값은 `APP_PROFILE=web`입니다. PowerShell 7에서 아래 명령으로 접속 코드 비밀키와 관리자 비밀번호 해시를 생성해 각각 `CANDIDATE_ACCESS_SECRET`과 `ADMIN_PASSWORD_HASH`에 입력합니다.
+
+   ```powershell
+   node tools/access-cli.mjs secret
+   (Read-Host '관리자 비밀번호' -MaskInput) | node tools/access-cli.mjs admin-hash
+   ```
+
+2. 운영 DB가 있다면 먼저 백업합니다. MariaDB 관리자 계정으로 `db/schema.sql`을 적용하고 앱 계정에는 `editor_state` 조회·수정과 `candidate_drafts` 조회·추가·수정 권한을 부여합니다.
+3. HTTPS 프록시에서 실제 도메인과 인증서를 설정하고 요청을 `127.0.0.1:4174`로 전달합니다. `Host`를 유지하고 `X-Forwarded-Proto: https`와 `X-Forwarded-For`를 설정합니다. `.env`에서 포트를 바꾼 경우 프록시 대상 포트도 맞춥니다. [Nginx 예시](manuscript.nginx.conf)의 도메인과 인증서 경로를 운영 환경에 맞게 적용할 수 있습니다.
+4. `start.bat`을 다시 실행합니다. 필요한 npm 의존성과 PDF용 Chromium을 준비하고 현재 창에서 서버를 시작합니다. 이 창의 `Ctrl+C`로 종료합니다. Google Chrome을 사용하려면 서버에 Chrome을 설치하고 `.env`에 `PDF_BROWSER_CHANNEL=chrome`을 설정합니다.
+
+업데이트할 때는 먼저 서버를 종료하고 `update.bat`을 실행합니다. 현재 브랜치의 추적 브랜치에서 빨리 감기 방식으로만 가져오며, 추적 파일에 로컬 변경 사항이 있거나 서버 포트가 사용 중이면 중단합니다. 결과는 `log/update-server.log`에서 확인할 수 있습니다. 스키마 변경 안내가 나오면 DB를 백업하고 `db/schema.sql`을 적용한 뒤 `start.bat`을 실행합니다. 두 배치 파일은 `--no-pause` 옵션으로 오류나 업데이트 종료 시 대기를 생략할 수 있습니다.
+
+내부망 전용으로 운영할 경우에만 `APP_PROFILE=local`과 기존 `LAN_HOST`·`LAN_SUBNET` 설정을 사용합니다. 이 모드의 관리자 화면은 서버 PC의 루프백 주소에서 엽니다.
+
+## Linux에서 systemd로 운영
+
 이 구성은 Node.js 24와 Nginx가 같은 Linux 서버에서 실행되고, 앱은 루프백에서 프록시 요청을 받는 구성을 기준으로 합니다. 설치 경로는 `/opt/manuscript`이고 서비스 계정은 `manuscript`입니다. 예시 도메인과 인증서 경로를 운영 환경에 맞춰 변경하세요.
 
 1. 기존 MariaDB를 백업한 뒤 관리자 권한으로 `db/schema.sql`을 적용합니다. `saved_at` 추가를 포함해 반복 실행할 수 있습니다. 앱 계정에는 `editor_state`의 조회·수정, `candidate_drafts`의 조회·추가·수정 권한을 부여합니다. 기존 해시 원고가 있다면 기존 키와 레거시 테이블 조회·삭제 권한도 준비합니다.
