@@ -319,7 +319,7 @@ try {
   assert.equal(await page.locator('#last-saved').textContent(), lastSaved);
   await checkDownloads(page);
 
-  await page.route('**/api/draft?question=1', route => route.request().method() === 'PUT'
+  await page.route('**/api/draft', route => route.request().method() === 'PUT'
     ? route.fulfill({ status: 503, json: { error: '테스트 저장 실패' } }) : route.continue());
   await page.locator('#source').focus();
   await page.keyboard.insertText(' 확인');
@@ -332,7 +332,7 @@ try {
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.locator('#draft-status[data-state=error]').waitFor();
   assert.equal(new URL(page.url()).pathname, '/manuscript');
-  await page.unroute('**/api/draft?question=1');
+  await page.unroute('**/api/draft');
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.waitForURL('**/login');
   page = await openDraft(context, url);
