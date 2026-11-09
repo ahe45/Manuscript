@@ -2,20 +2,14 @@
 setlocal
 pushd "%~dp0" || exit /b 1
 
-if not exist ".env" (
-  copy "deploy\manuscript.windows.env.example" ".env" >nul
-  if errorlevel 1 goto FAILED
-  echo Created .env. Set the database and access values, then run start.bat again.
-  echo See deploy\README.md for the first-time setup.
-  goto FAILED
-)
-
 where node.exe >nul 2>&1
 if errorlevel 1 (
   echo Install Node.js 24 with npm before running this script.
   goto FAILED
 )
 
+node tools/windows-setup.mjs
+if errorlevel 1 goto FAILED
 node --env-file=.env tools/windows-server.mjs prepare
 if errorlevel 1 goto FAILED
 
