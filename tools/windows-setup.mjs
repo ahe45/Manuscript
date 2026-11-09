@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { stdin, stdout } from 'node:process';
+import { clearLine, cursorTo, moveCursor } from 'node:readline';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import { parseEnv } from 'node:util';
@@ -43,9 +44,22 @@ async function promptForSettings(env, set) {
     if (!secret) return (await input.question(label, { signal: cancel.signal })).trim();
     stdout.write(label);
     masked = true;
+    function showMask(_character, key) {
+      if (input.closed || key?.name === 'return' || key?.name === 'enter') return;
+      const count = [...input.line].length;
+      const columns = Math.max(1, (stdout.columns ?? 80) - Buffer.byteLength(label) - 1);
+      const visible = Math.min(count, columns);
+      const caret = Math.min(visible, [...input.line.slice(0, input.cursor)].length);
+      cursorTo(stdout, 0);
+      clearLine(stdout, 0);
+      stdout.write(label + '*'.repeat(visible));
+      if (caret < visible) moveCursor(stdout, caret - visible, 0);
+    }
+    stdin.on('keypress', showMask);
     try {
       return await input.question('', { signal: cancel.signal });
     } finally {
+      stdin.off('keypress', showMask);
       masked = false;
       stdout.write('\n');
     }
