@@ -48,8 +48,8 @@ if errorlevel 1 goto FAILED
 
 git diff --quiet "%PREVIOUS_HEAD%" HEAD -- db/schema.sql
 if errorlevel 1 (
-  echo Database schema changed. Back up the database and apply db\schema.sql before starting.
-  echo Database schema changed. Back up the database and apply db\schema.sql before starting.>>"%UPDATE_LOG%"
+  echo Database schema changed. Back up the database before running start.bat.
+  echo Database schema changed. Back up the database before running start.bat.>>"%UPDATE_LOG%"
 )
 echo Update completed. Run start.bat to start Manuscript.
 echo Log: %UPDATE_LOG%

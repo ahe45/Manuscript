@@ -13,6 +13,8 @@ if errorlevel 1 goto FAILED
 set "APP_PROFILE=web"
 node --env-file=.env tools/windows-server.mjs prepare
 if errorlevel 1 goto FAILED
+node --env-file=.env tools/windows-database.mjs
+if errorlevel 1 goto FAILED
 
 echo Starting Manuscript. Press Ctrl+C to stop the server.
 node --env-file=.env server.mjs

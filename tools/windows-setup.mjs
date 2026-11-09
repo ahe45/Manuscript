@@ -1,11 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { stdin, stdout } from 'node:process';
-import { clearLine, cursorTo, moveCursor } from 'node:readline';
-import { createInterface } from 'node:readline/promises';
-import { Writable } from 'node:stream';
 import { parseEnv } from 'node:util';
 import { adminPasswordRange, hashAdminPassword, readWebAccess, validNewAdminPassword } from '../access.mjs';
+import { createSetupPrompt } from './windows-prompt.mjs';
 
 const envPath = '.env';
 const validHash = value => /^[a-f0-9]{32}:[a-f0-9]{64}$/i.test(value ?? '');
@@ -23,47 +20,7 @@ function envLine(key, value) {
 
 async function promptForSettings(env, set) {
   if (validPort(env.DB_PORT) && env.DB_USER && env.DB_PASSWORD && validHash(env.ADMIN_PASSWORD_HASH)) return;
-  if (!stdin.isTTY || !stdout.isTTY) throw new Error('처음 설정할 때는 명령 프롬프트에서 start.bat을 직접 실행하세요.');
-
-  let masked = false;
-  const output = new Writable({
-    write(chunk, encoding, done) {
-      stdout.write(chunk, encoding, done);
-    },
-  });
-  const write = output.write.bind(output);
-  // Discard secret keystrokes before they can enter the output buffer.
-  output.write = (...args) => masked || write(...args);
-  output.columns = stdout.columns;
-  const input = createInterface({ input: stdin, output, terminal: true, historySize: 0 });
-  const cancel = new AbortController();
-  input.once('close', () => cancel.abort());
-  input.on('SIGINT', () => input.close());
-
-  async function ask(label, secret = false) {
-    if (!secret) return (await input.question(label, { signal: cancel.signal })).trim();
-    stdout.write(label);
-    masked = true;
-    function showMask(_character, key) {
-      if (input.closed || key?.name === 'return' || key?.name === 'enter') return;
-      const count = [...input.line].length;
-      const columns = Math.max(1, (stdout.columns ?? 80) - Buffer.byteLength(label) - 1);
-      const visible = Math.min(count, columns);
-      const caret = Math.min(visible, [...input.line.slice(0, input.cursor)].length);
-      cursorTo(stdout, 0);
-      clearLine(stdout, 0);
-      stdout.write(label + '*'.repeat(visible));
-      if (caret < visible) moveCursor(stdout, caret - visible, 0);
-    }
-    stdin.on('keypress', showMask);
-    try {
-      return await input.question('', { signal: cancel.signal });
-    } finally {
-      stdin.off('keypress', showMask);
-      masked = false;
-      stdout.write('\n');
-    }
-  }
+  const { ask, close } = createSetupPrompt();
 
   async function field(key, label, { fallback, valid = Boolean, secret = false } = {}) {
     if (valid(env[key])) return env[key];
@@ -103,9 +60,7 @@ async function promptForSettings(env, set) {
       }
     }
   } finally {
-    input.close();
-    stdin.pause();
-    stdin.unref?.();
+    close();
   }
 }
 

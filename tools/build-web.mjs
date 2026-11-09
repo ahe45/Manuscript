@@ -8,6 +8,7 @@ const files = [
   'package.json', 'package-lock.json', 'server.mjs', 'database.mjs', 'access.mjs',
   'fonts.mjs', 'pdf.mjs', 'pdf-queue.mjs', 'README.md', 'REFACTORING_PLAN.md',
   'db/schema.sql', 'tools/access-cli.mjs', 'tools/windows-server.mjs', 'tools/windows-setup.mjs', 'start.bat', 'update.bat',
+  'tools/windows-database.mjs', 'tools/windows-prompt.mjs',
   'deploy/README.md', 'deploy/manuscript.env.example', 'deploy/manuscript.windows.env.example',
   'deploy/manuscript.service', 'deploy/manuscript.nginx.conf',
   'installer/README.md',
