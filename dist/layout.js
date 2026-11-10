@@ -18,7 +18,9 @@ const openingMark = /^[\p{Ps}\p{Pi}<＜≪]$/u;
 const closingMark = /^[\p{Pe}\p{Pf}>＞≫]$/u;
 const straightQuote = /^["'＂＇]$/;
 const quoteMark = /^[“”‘’"'＂＇]$/;
+const curlyQuotePairs = new Map([['“', '”'], ['‘', '’']]);
 const period = /^[.。．]$/;
+const quotePunctuation = /^[.,!?()[\]{}:;。，．，、！？（）［］｛｝：；]$/;
 const numericSeparator = /^[.,．，]$/;
 const lineEndMarks = /^[.,!?;:·ㆍ・･%‰‱~^。，．，！？、：；％～＾]$/;
 const space = /^[ \t\u3000]$/;
@@ -101,24 +103,26 @@ export function layout(text, columns = COLUMNS, maxCells = null) {
     const isOpening = !isApostrophe && (openingMark.test(segment) ||
       (isStraightQuote && !closesStraightQuote));
     const isClosing = !isApostrophe && (closingMark.test(segment) || closesStraightQuote);
-    if (isStraightQuote && !isApostrophe) {
-      if (closesStraightQuote) openQuotes.delete(segment);
-      else openQuotes.add(segment);
-    }
-
     const quote = !isApostrophe && quoteMark.test(segment) ? (isOpening ? 'open' : 'close') : undefined;
+    if (quote === 'open') openQuotes.add(curlyQuotePairs.get(segment) ?? segment);
+    else if (quote === 'close') openQuotes.delete(segment);
+
     const followsPrevious = isClosing || isApostrophe || lineEndMarks.test(segment);
-    // This also keeps a closing quote with a period already attached at the row end.
-    const joinsPeriod = quote === 'close' && period.test(previousSegment);
-    const endsQuotedSentence = period.test(segment) &&
+    const joinsPunctuation = quote === 'close' && (period.test(previousSegment) ||
+      (atRowEnd && lastCellSize === 2 && quotePunctuation.test(previousSegment)));
+    const precedesClosingQuote = quotePunctuation.test(segment) &&
       (next === '”' || next === '’' || openQuotes.has(next));
     const separatesDigits = numericSeparator.test(segment) && digit.test(previousSegment) &&
-      !endsQuotedSentence;
+      !(precedesClosingQuote && (atRowEnd || period.test(segment)));
     const pair = digit.test(segment) ? 'digit' : lowercase.test(segment) ? 'lowercase' : null;
     const packsTogether = (pair !== null && pair === pendingPair) ||
       (separatesDigits && pendingPair === 'digit');
-    const fitsAtRowEnd = atRowEnd && followsPrevious && lastCellSize < 2;
-    if (fitsAtRowEnd || joinsPeriod || packsTogether) {
+    // Leave room to type the closing quote after an opening bracket at the manuscript limit.
+    const awaitingClosingQuote = cells.length === maxCells && !next && openQuotes.size > 0 &&
+      isOpening && quotePunctuation.test(segment);
+    const fitsAtRowEnd = atRowEnd && lastCellSize < 2 &&
+      (followsPrevious || precedesClosingQuote || awaitingClosingQuote);
+    if (fitsAtRowEnd || joinsPunctuation || packsTogether) {
       appendToLast(segment, index, end, quote, packsTogether, previous.index);
       pendingPair = null;
       continue;
