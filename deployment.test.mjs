@@ -89,8 +89,8 @@ test('PDF queue removes aborted waiters and aborts long jobs', async () => {
 
 test('shared cell limits apply to drafts and print grids', () => {
   const body = layout('“가나다.”', 5, 5);
-  assert.equal(withinCellLimit(body, 5), false);
-  assert.equal(withinCellLimit(body, 6), true);
+  assert.equal(withinCellLimit(body, 5), true);
+  assert.equal(withinCellLimit(layout('“가나다.”끝', 5, 5), 5), false);
   assert.equal(visibleCellCount(body, 5, 5), 5);
   assert.equal(visibleCellCount(layout(''), 20, null), 200);
 });

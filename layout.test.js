@@ -92,20 +92,22 @@ test('사용한 칸 수는 문단 사이 빈칸을 포함하고 마지막 빈 �
   assert.equal(layout('가\n\n나', 5).usedCells, 12);
 });
 
-test('마침표와 닫는 따옴표가 마지막 칸에 함께 들어가지 않으면 다음 행 첫 칸을 쓴다', () => {
+test('줄 끝 글자와 마침표와 닫는 따옴표를 마지막 칸에 배치한다', () => {
   for (const [open, close] of [['“', '”'], ['‘', '’'], ['"', '"'], ["'", "'"]]) {
     const { cells, positions, usedCells } = layout(open + '가나다.' + close + '끝', 5);
-    assert.equal(cells[4].display, '다');
-    assert.equal(cells[5].display, '.' + close);
-    assert.equal(cells[6].display, '끝');
-    assert.equal(positions[4].cell, 5);
-    assert.equal(positions[5].cell, 5);
-    assert.equal(usedCells, 7);
+    assert.equal(cells[4].display, '다.' + close);
+    assert.deepEqual(cells[4].parts.map(({ display, quote }) => [display, quote]),
+      [['다', undefined], ['.', undefined], [close, 'close']]);
+    assert.equal(cells[5].display, '끝');
+    assert.equal(positions[4].cell, 4);
+    assert.equal(positions[5].cell, 4);
+    assert.equal(usedCells, 6);
   }
   const { cells, usedCells } = layout('가나다라마바.”', 5, 7);
-  assert.equal(usedCells, 8);
-  assert.equal(cells[6].display, '바');
-  assert.equal(cells[7].display, '.”');
+  assert.equal(usedCells, 7);
+  assert.equal(cells[6].display, '바.”');
+  assert.equal(layout('가나다라마바.”끝', 5, 7).usedCells, 8);
+  assert.deepEqual(layout('“가나50.”', 5).cells.slice(4).map(cell => cell.display), ['50', '.”']);
 });
 
 test('줄 끝 띄어쓰기는 다음 행 첫 칸을 차지하지 않고 문단은 들여쓴다', () => {

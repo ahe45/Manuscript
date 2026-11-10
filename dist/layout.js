@@ -108,6 +108,7 @@ export function layout(text, columns = COLUMNS, maxCells = null) {
 
     const quote = !isApostrophe && quoteMark.test(segment) ? (isOpening ? 'open' : 'close') : undefined;
     const followsPrevious = isClosing || isApostrophe || lineEndMarks.test(segment);
+    // This also keeps a closing quote with a period already attached at the row end.
     const joinsPeriod = quote === 'close' && period.test(previousSegment);
     const endsQuotedSentence = period.test(segment) &&
       (next === '”' || next === '’' || openQuotes.has(next));
@@ -116,8 +117,7 @@ export function layout(text, columns = COLUMNS, maxCells = null) {
     const pair = digit.test(segment) ? 'digit' : lowercase.test(segment) ? 'lowercase' : null;
     const packsTogether = (pair !== null && pair === pendingPair) ||
       (separatesDigits && pendingPair === 'digit');
-    // A period and closing quote need an empty cell to stay together.
-    const fitsAtRowEnd = atRowEnd && followsPrevious && lastCellSize < 2 && !endsQuotedSentence;
+    const fitsAtRowEnd = atRowEnd && followsPrevious && lastCellSize < 2;
     if (fitsAtRowEnd || joinsPeriod || packsTogether) {
       appendToLast(segment, index, end, quote, packsTogether, previous.index);
       pendingPair = null;
