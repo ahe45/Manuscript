@@ -74,6 +74,7 @@ const files = new Map([
   ['/editor.js', ['editor.js', 'text/javascript; charset=utf-8']],
   ['/layout.js', ['layout.js', 'text/javascript; charset=utf-8']],
   ['/glyphs.js', ['glyphs.js', 'text/javascript; charset=utf-8']],
+  ['/fit-title.js', ['fit-title.js', 'text/javascript; charset=utf-8']],
   ['/print.js', ['print.js', 'text/javascript; charset=utf-8']],
 ]);
 

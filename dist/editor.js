@@ -1,4 +1,5 @@
 import { cellGlyphs, createGridCell, fitGlyphs } from './glyphs.js';
+import { fitTitle } from './fit-title.js';
 import { renderPrintSheet } from './print.js';
 import { bindDownloadMenus } from './download-menu.js';
 import { layout, COLUMNS, CELL_BREAK, withinCellLimit, visibleCellCount } from './layout.js';
@@ -11,6 +12,8 @@ const toolbar = workspace.querySelector('.toolbar');
 const sheets = document.querySelector('#sheets');
 const status = document.querySelector('#status');
 const editorTitle = document.querySelector('#editor-title');
+const resizeEditorTitle = () => fitTitle(editorTitle);
+new ResizeObserver(() => requestAnimationFrame(resizeEditorTitle)).observe(editorTitle.parentElement);
 const questionTitle = document.querySelector('#question-title');
 const questionNavigation = document.querySelector('#question-navigation');
 const previousQuestion = document.querySelector('#previous-question');
@@ -360,6 +363,7 @@ function queueGlyphFits(groups) {
 }
 
 let gridWidth;
+document.fonts.addEventListener('loadingdone', () => queueGlyphFits(sheets.querySelectorAll('.fit-glyphs')));
 new ResizeObserver(([entry]) => {
   if (entry.contentRect.width === gridWidth) return;
   gridWidth = entry.contentRect.width;
@@ -711,6 +715,8 @@ try {
     field.textContent = settings.candidate[field.dataset.field];
   }
   candidateDetails.hidden = false;
+  resizeEditorTitle();
+  void document.fonts.ready.then(resizeEditorTitle);
   editorToken = settings.editorToken;
   columns = settings.columns;
   maxCells = settings.maxCharacters;

@@ -13,6 +13,7 @@ const assets = new Map([
   ['/print-preview.js', 'print-preview.js'],
   ['/print.js', 'print.js'],
   ['/glyphs.js', 'glyphs.js'],
+  ['/fit-title.js', 'fit-title.js'],
   ['/layout.js', 'layout.js'],
   ['/style.css', 'style.css'],
 ]);

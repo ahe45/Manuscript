@@ -1,6 +1,8 @@
 const segmenter = new Intl.Segmenter('ko', { granularity: 'grapheme' });
 const lowMark = /^[.,。，．，、]$/;
+const standaloneSymbol = /^[\p{P}\p{S}]+$/u;
 const sharedQuoteWidth = 0.34;
+const glyphMetrics = document.createElement('canvas').getContext('2d');
 
 export function fitGlyphs(groups) {
   const fits = [];
@@ -17,10 +19,20 @@ export function fitGlyphs(groups) {
       const sharesWithText = group.classList.contains('mark-close') && glyphs.querySelector('.cell-line');
       availableWidth = cellWidth * (sharesWithText ? sharedQuoteWidth : 0.76);
     }
-    fits.push({ group, scale: Math.min(1, availableWidth / group.offsetWidth), quoteSpace });
+    let verticalOffset = 0;
+    if (group.classList.contains('center-symbol')) {
+      const { fontSize, fontFamily, fontWeight } = getComputedStyle(group);
+      glyphMetrics.font = `${fontWeight} ${fontSize} ${fontFamily}`;
+      const metrics = glyphMetrics.measureText(group.textContent);
+      // Align the center of the visible glyph with the center of the font box.
+      verticalOffset = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent -
+        metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent) / 2;
+    }
+    fits.push({ group, scale: Math.min(1, availableWidth / group.offsetWidth), quoteSpace, verticalOffset });
   }
-  for (const { group, scale, quoteSpace } of fits) {
+  for (const { group, scale, quoteSpace, verticalOffset } of fits) {
     group.style.setProperty('--glyph-scale', scale);
+    if (group.classList.contains('center-symbol')) group.style.setProperty('--glyph-offset-y', `${verticalOffset}px`);
     if (quoteSpace) group.parentElement.style.setProperty('--quote-space', `${quoteSpace}px`);
   }
 }
@@ -50,6 +62,7 @@ export function cellGlyphs(data) {
   }
   if (line.hasChildNodes()) {
     if (data.parts) line.classList.add('fit-glyphs');
+    if (standaloneSymbol.test(line.textContent)) line.classList.add('fit-glyphs', 'center-symbol');
     glyphs.append(line);
   }
   for (const [corner, display] of Object.entries(corners)) {

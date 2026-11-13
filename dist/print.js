@@ -1,5 +1,6 @@
 import { layout, visibleCellCount } from './layout.js';
 import { createGridCell, cellGlyphs, fitGlyphs } from './glyphs.js';
+import { fitTitle } from './fit-title.js';
 
 function addPage(sheet) {
   const page = document.createElement('div');
@@ -14,29 +15,44 @@ function addPage(sheet) {
 function createHeading(settings) {
   const heading = document.createElement('header');
   heading.className = 'print-heading';
-  const headingTitle = document.createElement('div');
-  headingTitle.className = 'print-heading-title';
   const title = document.createElement('h1');
   title.textContent = settings.title;
-  const subtitle = document.createElement('p');
-  subtitle.className = 'print-question';
-  subtitle.textContent = settings.questionTitles[settings.question - 1];
-  headingTitle.append(title, subtitle);
+  const questionTitle = document.createElement('p');
+  questionTitle.className = 'print-question';
+  questionTitle.textContent = settings.questionTitles[settings.question - 1];
 
-  const candidate = document.createElement('dl');
+  const candidate = document.createElement('table');
   candidate.className = 'candidate-details';
-  for (const [label, value] of [
-    ['수험번호', settings.candidate.number],
-    ['이름', settings.candidate.name],
-    ['생년월일', settings.candidate.birthDate],
+  candidate.setAttribute('aria-label', '수험생 정보');
+  const candidateRows = candidate.createTBody();
+  for (const [field, label] of [
+    ['number', '수험번호'],
+    ['birthDate', '생년월일'],
+    ['name', '성명'],
   ]) {
-    const term = document.createElement('dt');
+    const row = candidateRows.insertRow();
+    const term = document.createElement('th');
+    term.scope = 'row';
+    if (field === 'name') term.className = 'candidate-name-label';
     term.textContent = label;
-    const detail = document.createElement('dd');
-    detail.textContent = value ?? '';
-    candidate.append(term, detail);
+    const detail = document.createElement('td');
+    detail.textContent = settings.candidate[field] ?? '';
+    row.append(term, detail);
   }
-  heading.append(headingTitle, candidate);
+  const signature = document.createElement('div');
+  signature.className = 'proctor-signature';
+  const signatureLabel = document.createElement('div');
+  signatureLabel.className = 'proctor-signature-label';
+  signatureLabel.textContent = '※ 감독관 확인';
+  signature.append(signatureLabel);
+
+  const candidateHeader = document.createElement('div');
+  candidateHeader.className = 'candidate-header';
+  candidateHeader.append(candidate, signature);
+  const headingDetails = document.createElement('div');
+  headingDetails.className = 'print-heading-details';
+  headingDetails.append(candidateHeader);
+  heading.append(title, headingDetails, questionTitle);
   return heading;
 }
 
@@ -62,8 +78,9 @@ export function renderPrintSheet(sheet, settings, model = layout(settings.body, 
 
   sheet.classList.add('print-measuring');
   try {
+    fitTitle(heading.querySelector('h1'));
     const pageHeight = firstPage.clientHeight;
-    const headingHeight = heading.getBoundingClientRect().height + parseFloat(getComputedStyle(heading).marginBottom);
+    const headingHeight = rows[0].getBoundingClientRect().top - firstPage.getBoundingClientRect().top;
     const rowHeight = rows[0].getBoundingClientRect().height + parseFloat(getComputedStyle(rows[0]).marginBottom);
     let page = firstPage;
     let remaining = pageHeight - headingHeight;
