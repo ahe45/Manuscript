@@ -94,13 +94,28 @@ main { max-width: 980px; margin: auto; padding: clamp(22px, 5vw, 56px) 16px 28px
   text-justify: inter-character;
 }
 .print-heading .candidate-details td {
+  min-inline-size: calc(10ic + 1.3em + 1px);
   background: #fff;
   color: #000;
   overflow-wrap: anywhere;
 }
+.print-candidate-name {
+  contain: inline-size;
+  block-size: 2.9cqw;
+  align-content: safe center;
+  overflow: hidden;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.print-candidate-name.wrap-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
 .proctor-signature {
   flex: none;
-  inline-size: 9em;
+  inline-size: 13em;
   min-block-size: 5.625em;
   border: 1px solid var(--form-border);
   background: #fff;
@@ -508,6 +523,14 @@ footer { margin-top: 14px; }
   text-align: center;
 }
 .print-question { margin: var(--heading-gap) 0 0; font-size: 2.1cqw; font-weight: 700; overflow-wrap: anywhere; }
+.print-page-number {
+  margin-block-start: auto;
+  padding-block-start: 1cqw;
+  font-size: 1.65cqw;
+  line-height: 2.2cqw;
+  text-align: center;
+  white-space: nowrap;
+}
 .print-row { margin-block-end: calc(22cqw / var(--columns, 20)); border: 0; }
 .print-row .cell { border: 0; font-family: inherit; }
 .print-row .cell::before {

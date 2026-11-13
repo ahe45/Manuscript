@@ -36,7 +36,14 @@ function createHeading(settings) {
     if (field === 'name') term.className = 'candidate-name-label';
     term.textContent = label;
     const detail = document.createElement('td');
-    detail.textContent = settings.candidate[field] ?? '';
+    if (field === 'name') {
+      const name = document.createElement('div');
+      name.className = 'print-candidate-name';
+      name.textContent = settings.candidate.name ?? '';
+      detail.append(name);
+    } else {
+      detail.textContent = settings.candidate[field] ?? '';
+    }
     row.append(term, detail);
   }
   const signature = document.createElement('div');
@@ -74,12 +81,18 @@ export function renderPrintSheet(sheet, settings, model = layout(settings.body, 
     }
     rows.push(row);
   }
-  firstPage.append(heading, ...rows);
+  const firstFooter = document.createElement('div');
+  firstFooter.className = 'print-page-number';
+  const pageFooters = [firstFooter];
+  firstPage.append(heading, ...rows, firstFooter);
 
   sheet.classList.add('print-measuring');
   try {
     fitTitle(heading.querySelector('h1'));
-    const pageHeight = firstPage.clientHeight;
+    const name = heading.querySelector('.print-candidate-name');
+    if (fitTitle(name, 0.75) === false) name.classList.add('wrap-name');
+    const footerHeight = firstFooter.getBoundingClientRect().height;
+    const pageHeight = firstPage.clientHeight - footerHeight;
     const headingHeight = rows[0].getBoundingClientRect().top - firstPage.getBoundingClientRect().top;
     const rowHeight = rows[0].getBoundingClientRect().height + parseFloat(getComputedStyle(rows[0]).marginBottom);
     let page = firstPage;
@@ -87,10 +100,18 @@ export function renderPrintSheet(sheet, settings, model = layout(settings.body, 
     for (const row of rows) {
       if (rowHeight > remaining) {
         page = addPage(sheet);
+        const footer = firstFooter.cloneNode();
+        page.append(footer);
+        pageFooters.push(footer);
         remaining = pageHeight;
       }
-      if (page !== firstPage) page.append(row);
+      if (page !== firstPage) page.lastElementChild.before(row);
       remaining -= rowHeight;
+    }
+    const questionTitle = settings.questionTitles[settings.question - 1];
+    for (const [index, footer] of pageFooters.entries()) {
+      footer.textContent = `${questionTitle} Page ${index + 1}/${pageFooters.length}`;
+      fitTitle(footer);
     }
     fitGlyphs(sheet.querySelectorAll('.fit-glyphs'));
   } finally {
